@@ -3,3 +3,4 @@ openai
 unstructured
 streamlit
 python-dotenv
+requests
