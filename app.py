@@ -1,11 +1,11 @@
 import streamlit as st
 # from pdf_parser import parse_pdf   # <<<<< 일단 주석!
 # from llm_executor import run_daji_analysis   # <<<<< 일단 주석!
-
+from openai import OpenAI
 import openai
 import os
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 st.title("Inni Analyzer MVP (기본 실행)")
 
@@ -18,7 +18,7 @@ if uploaded_file:
     st.write("PDF 업로드 완료!")
 
     if st.button("기본 분석 실행"):
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "당신은 건축 분석 AI입니다."},
@@ -26,4 +26,5 @@ if uploaded_file:
             ]
         )
         st.markdown("## 분석 결과")
-        st.write(response['choices'][0]['message']['content'])
+        st.write(response.choices[0].message.content)
+
