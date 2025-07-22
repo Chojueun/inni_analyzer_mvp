@@ -1,0 +1,5 @@
+dspy
+openai
+unstructured
+streamlit
+python-dotenv
