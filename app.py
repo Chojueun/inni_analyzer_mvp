@@ -1,41 +1,59 @@
 import streamlit as st
-import os
-import requests
-from dotenv import load_dotenv
+from user_state import get_user_inputs
+from prompt_loader import load_prompt_blocks
+from agent_executor import InniAgent
 
-# .env에서 API 키 불러오기
-load_dotenv()
-api_key = os.getenv("DEEPSEEK_API_KEY")
+st.set_page_config(page_title="Inni Analyzer MVP", layout="centered")
 
-st.title("Inni Analyzer MVP - DeepSeek 버전")
+# 상태 불러오기
+user_inputs = get_user_inputs()
+blocks = load_prompt_blocks()
+agent = InniAgent()
 
-uploaded_file = st.file_uploader("PDF 파일 업로드", type=["pdf"])
+# 현재 단계를 선택 (0단계부터 시작)
+if "step_index" not in st.session_state:
+    st.session_state.step_index = 0
 
-if uploaded_file:
-    with open("temp.pdf", "wb") as f:
-        f.write(uploaded_file.read())
-    st.success("PDF 업로드 완료!")
+block = blocks[st.session_state.step_index]
 
-    if st.button("기본 분석 실행"):
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
+st.title("분석 단계")
+st.subheader("아래 프롬프트 내용 기반 분석을 시작합니다.")
 
-        data = {
-            "model": "deepseek-chat",  # 또는 deepseek-llm
-            "messages": [
-                {"role": "system", "content": "당신은 건축 전문가입니다. 분석 리포트를 써주세요."},
-                {"role": "user", "content": "대지 분석 보고서를 써줘. PDF 내용은 생략하고 샘플만 출력해줘."}
-            ]
-        }
+# 사용자 입력 받기
+st.markdown("### 사용자 입력")
+user_inputs["건축주"] = st.text_input("건축주", user_inputs.get("건축주", ""))
+user_inputs["주소"] = st.text_input("주소", user_inputs.get("주소", ""))
+user_inputs["참고사항"] = st.text_area("참고사항", user_inputs.get("참고사항", ""))
+user_inputs["PDF내용"] = st.text_area("PDF 요약 내용", user_inputs.get("PDF내용", ""))
 
-        res = requests.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=data)
+# 분석용 프롬프트 구성
+st.markdown("### 분석용 프롬프트")
+formatted_prompt = block["prompt"]
+for key, value in user_inputs.items():
+    formatted_prompt = formatted_prompt.replace(f"{{{{{key}}}}}", value)
 
-        if res.status_code == 200:
-            content = res.json()["choices"][0]["message"]["content"]
-            st.markdown("## 분석 결과")
-            st.write(content)
-        else:
-            st.error(f"오류 발생: {res.status_code}")
-            st.text(res.text)
+# {{prompt_text}}도 치환
+if "{{prompt_text}}" in formatted_prompt:
+    formatted_prompt = formatted_prompt.replace("{{prompt_text}}", block.get("title", ""))
+
+st.text_area("📄 최종 프롬프트 (LLM 입력값)", formatted_prompt, height=250)
+
+# 분석 버튼
+if st.button("🔍 분석 실행"):
+    with st.spinner("LLM 추론 중..."):
+        try:
+            result = agent.run_analysis(formatted_prompt)
+            st.success("✅ 분석 완료!")
+            st.markdown("### 📌 분석 결과")
+            st.markdown(result)
+            st.session_state["last_result"] = result
+        except Exception as e:
+            st.error(f"❌ 분석 중 오류 발생: {e}")
+
+# 다음 단계로 이동
+if st.button("➡ 다음 단계 진행"):
+    if st.session_state.step_index < len(blocks) - 1:
+        st.session_state.step_index += 1
+        st.rerun()
+    else:
+        st.info("마지막 단계입니다.")

@@ -4,3 +4,4 @@ unstructured
 streamlit
 python-dotenv
 requests
+dspy-ai
