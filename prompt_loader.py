@@ -1,11 +1,14 @@
+# prompt_loader.py
 import json
 import os
 
-def load_prompt_blocks(file_path="prompt_blocks.json"):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"{file_path} 파일을 찾을 수 없습니다.")
-
-    with open(file_path, "r", encoding="utf-8") as f:
+def load_prompt_blocks(json_path="prompt_blocks.json"):
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
+    if isinstance(data, list):
+        return data
+    elif isinstance(data, dict) and "blocks" in data:
+        return data["blocks"]
+    else:
+        return []
 
-    return data["blocks"]
