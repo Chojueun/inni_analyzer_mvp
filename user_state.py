@@ -11,5 +11,3 @@ def get_user_inputs():
     return st.session_state.user_inputs
 
 
-def update_user_inputs(key, value):
-    st.session_state["user_inputs"][key] = value

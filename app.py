@@ -1,5 +1,4 @@
 import streamlit as st
-from user_state import get_user_inputs
 from prompt_loader import load_prompt_blocks
 from agent_executor import InniAgent
 
@@ -7,8 +6,6 @@ st.set_page_config(page_title="Inni Analyzer MVP", layout="centered")
 
 # 상태 불러오기
 user_inputs = get_user_inputs()
-blocks = load_prompt_blocks()
-agent = InniAgent()
 
 # 현재 단계를 선택 (0단계부터 시작)
 if "step_index" not in st.session_state:
