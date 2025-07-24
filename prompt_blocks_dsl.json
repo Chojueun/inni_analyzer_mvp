@@ -1,0 +1,41 @@
+{
+  "default_intro": {
+    "id": "principle_notice",
+    "title": "핵심 원칙 및 분석 유의사항",
+    "content": "..."
+  },
+  "blocks": [
+    {
+      "id": "project_overview",
+      "title": "프로젝트 정보 요약 및 방향 설정",
+      "description": "건축주 정보와 프로젝트 목적 등을 요약하고 방향성을 설정합니다.",
+      "content_dsl": {
+        "goal": "프로젝트 방향 설정",
+        "source": ["user_inputs", "pdf_summary"],
+        "tasks": [
+          "건축주, 대상지, 목적 등 프로젝트 기본 정보 정리",
+          "PDF 문서 요약 정리",
+          "프로젝트의 전략적 목적 및 개발 범위 도출"
+        ],
+        "style": "데이터 기반 분석, 부드러운 표현",
+        "constraints": ["실행 가능성", "AI 추론 명시"]
+      }
+    },
+    {
+      "id": "zoning_analysis",
+      "title": "법적 조건 및 인허가 전략 분석",
+      "description": "지구단위계획, 건폐율, 인허가 리스크 등을 분석합니다.",
+      "content_dsl": {
+        "goal": "법적 조건과 인허가 전략 정리",
+        "source": ["user_inputs.site_location", "pdf_summary"],
+        "tasks": [
+          "지구단위계획, 건폐율, 용적률, 높이 제한 등 법적 조건 확인",
+          "주요 인허가 단계와 예상 리스크 정리",
+          "인허가 일정이 전체 프로젝트 일정에 미치는 영향 분석"
+        ],
+        "style": "사례 기반 + 분석 기반 추론",
+        "constraints": ["AI 추론 명시", "정확한 법적 해석"]
+      }
+    }
+  ]
+}

@@ -1,10 +1,6 @@
-# user_state.py
 import streamlit as st
 
 def init_user_state():
-    """
-    초기 상태 변수 설정
-    """
     if "pdf_summary" not in st.session_state:
         st.session_state.pdf_summary = ""
     if "user_inputs" not in st.session_state:
@@ -19,9 +15,10 @@ def init_user_state():
         }
     if "step_results" not in st.session_state:
         st.session_state.step_results = {}  # 각 단계별 분석 결과 저장
+    if "step_history" not in st.session_state:
+        st.session_state.step_history = []  # 각 단계의 (id, title, prompt, result)
     if "current_step_index" not in st.session_state:
-        st.session_state.current_step_index = 0  # 현재 선택된 단계
-
+        st.session_state.current_step_index = 0
 
 def get_user_inputs():
     if "user_inputs" not in st.session_state:
@@ -39,16 +36,10 @@ def get_user_inputs():
 
     return st.session_state.user_inputs
 
-
-
 def update_user_input(key: str, value: str):
-    """
-    사용자 입력 값 갱신
-    """
     if "user_inputs" not in st.session_state:
         st.session_state.user_inputs = {}
     st.session_state.user_inputs[key] = value
-
 
 def set_pdf_summary(summary: str):
     st.session_state.pdf_summary = summary
@@ -61,6 +52,29 @@ def save_step_result(step_id: str, result: str):
 
 def get_step_result(step_id: str) -> str:
     return st.session_state.step_results.get(step_id, "")
+
+def append_step_history(step_id: str, title: str, prompt: str, result: str):
+    """
+    단계 결과를 CoT 방식으로 누적 저장
+    """
+    st.session_state.step_history.append({
+        "id": step_id,
+        "title": title,
+        "prompt": prompt,
+        "result": result
+    })
+
+def get_step_context() -> str:
+    """
+    지금까지의 단계 결과를 순서대로 정리해서 CoT 프롬프트에 넣을 수 있도록 반환
+    """
+    lines = []
+    for step in st.session_state.get("step_history", []):
+        lines.append(f"🔹 단계: {step['title']}")
+        lines.append(f"📝 입력 프롬프트:\n{step['prompt']}")
+        lines.append(f"📌 분석 결과:\n{step['result']}")
+        lines.append("-" * 40)
+    return "\n".join(lines)
 
 def next_step():
     st.session_state.current_step_index += 1
