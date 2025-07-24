@@ -23,13 +23,19 @@ CORE_PRINCIPLES_BLOCK = {
 
 
 def load_prompt_blocks(json_path="prompt_blocks_dsl.json"):
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    blocks = data["blocks"] if isinstance(data, dict) else []
-    all_blocks = [CORE_PRINCIPLES_BLOCK] + blocks
-
-    return {block["id"]: block for block in all_blocks}
+   """
+   고정 블럭(core)은 따로, 나머지 분석 블럭은 따로 리턴.
+   """
+   with open(json_path, "r", encoding="utf-8") as f:
+       data = json.load(f)
+   # 고정 블럭만
+   core = [CORE_PRINCIPLES_BLOCK]
+   # JSON에 정의된 나머지 블럭
+   extra = data["blocks"] if isinstance(data, dict) else []
+   return {
+       "core": core,      # 리스트 형태
+       "extra": extra     # 리스트 형태
+   }
 
 
 def dsl_to_content(dsl: dict) -> str:

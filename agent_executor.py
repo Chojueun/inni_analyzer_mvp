@@ -1,6 +1,8 @@
 import os
 import dspy
 from dspy import Module, Signature, InputField, OutputField
+from dspy.teleprompt.bootstrap import BootstrapFewShot
+from dspy.predict.react import ReAct
 from dotenv import load_dotenv
 
 # ✅ 환경변수 로드
@@ -26,20 +28,36 @@ class AnalysisSignature(Signature):
 
 # ✅ 에이전트 정의 (CoT 기반)
 class InniAgent(Module):
-    def __init__(self):
+    def __init__(self, method="CoT"):
         super().__init__()
-        self.analysis_module = dspy.ChainOfThought(AnalysisSignature)
+        self.method = method
+        if method == "ReAct":
+            self.analysis_module = ReAct(AnalysisSignature, tools=[])
+        elif method == "BootstrapFewShot":
+            self.analysis_module = BootstrapFewShot(AnalysisSignature)
+        else:
+            self.analysis_module = dspy.ChainOfThought(AnalysisSignature)
 
-    def run_analysis(self, full_prompt: str) -> str:
+    def run_analysis(self, full_prompt: str, method="CoT") -> str:
+        agent = InniAgent(method)
         try:
-            result = self.analysis_module(input=full_prompt)
-            reasoning = result.reasoning
+            result = agent.analysis_module(input=full_prompt)
             output = result.output
-            usage = result.get_lm_usage()
 
-            # 🔍 디버깅 출력
-            print(f"\n🧠 [Reasoning]\n{reasoning}")
-            print(f"\n📊 [Token Usage]\n{usage}")
+            # 실패(빈 결과) 시 순차 재시도
+            if not output:
+                # BootstrapFewShot → ReAct 순으로 재시도
+                if self.method != "BootstrapFewShot":
+                    print("⚠️ 재시도: BootstrapFewShot 사용")
+                    result = BootstrapFewShot(AnalysisSignature)(input=full_prompt)
+                if not result.output:
+                    print("⚠️ 재시도: ReAct 사용")
+                    result = ReAct(AnalysisSignature)(input=full_prompt)
+                output = result.output
+
+            # 디버깅·로깅
+            print(f"\n🧠 [Reasoning]\n{result.reasoning}")
+            print(f"\n📊 [Token Usage]\n{result.get_lm_usage()}")
 
             return output
 

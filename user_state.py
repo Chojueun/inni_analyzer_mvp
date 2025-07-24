@@ -15,6 +15,8 @@ def init_user_state():
         }
     if "step_results" not in st.session_state:
         st.session_state.step_results = {}  # 각 단계별 분석 결과 저장
+    if "cot_history" not in st.session_state:
+        st.session_state.cot_history = []
     if "step_history" not in st.session_state:
         st.session_state.step_history = []  # 각 단계의 (id, title, prompt, result)
     if "current_step_index" not in st.session_state:

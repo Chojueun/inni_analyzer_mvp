@@ -5,3 +5,7 @@ streamlit
 python-dotenv
 requests
 dspy-ai
+PyPDF2
+streamlit-sortables
+markdown2 
+reportlab
