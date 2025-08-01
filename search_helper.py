@@ -1,14 +1,20 @@
 # search_helper.py
 import requests
+import os
 
-def search_web(query: str) -> str:
-    """
-    웹 검색 또는 문서 검색 기능을 위한 placeholder 함수.
-    향후 RAG 등과 연동 시 여기에 구현.
-    현재는 더미 응답 반환.
-    """
-    # 향후 검색 API 연동 시 여기에 로직 추가
-    # 예: SerpAPI, Bing, Naver, Arxiv 등
-    
-    dummy_result = f"[검색 결과: '{query}'에 대한 요약 정보는 추후 구현 예정입니다.]"
-    return dummy_result
+SERP_API_KEY = os.environ.get("SERP_API_KEY")
+
+def search_web_serpapi(query):
+    params = {
+        "q": query,
+        "api_key": SERP_API_KEY,
+        "engine": "google",
+        "num": 3
+    }
+    resp = requests.get("https://serpapi.com/search", params=params)
+    data = resp.json()
+    if "organic_results" in data:
+        results = data["organic_results"]
+        return "\n---\n".join([f"{r['title']}\n{r.get('snippet', '')}" for r in results])
+    else:
+        return "[검색 결과 없음]"

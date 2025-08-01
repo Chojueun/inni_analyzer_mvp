@@ -9,3 +9,6 @@ PyPDF2
 streamlit-sortables
 markdown2 
 reportlab
+chromadb
+PyMuPDF
+sentence-transformers
