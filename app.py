@@ -19,15 +19,7 @@ from reportlab.pdfbase import pdfmetrics
 from user_state import append_step_history  # 🔺 파일 상단 import도 추가하세요
 from difflib import SequenceMatcher
 from utils_pdf_vector import save_pdf_chunks_to_chroma
-import dspy
-from dotenv import load_dotenv
-import os
-load_dotenv()
-print("ANTHROPIC_API_KEY:", os.environ.get("ANTHROPIC_API_KEY"))
-
-if not getattr(dspy.settings, "lm", None):
-    lm = dspy.LM("claude-3-opus", provider="anthropic")
-    dspy.configure(lm=lm, track_usage=True)
+from init_dspy import *
 
 
 def is_duplicate_content(prev_result, curr_result):

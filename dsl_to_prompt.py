@@ -28,7 +28,7 @@ def convert_dsl_to_prompt(
     if dsl_block.get("search_source") == "pdf_vector_db":
         query_template = dsl_block.get("search_query_template", "주요 내용")
         query = query_template.format(**user_inputs)
-        pdf_chunks = search_pdf_chunks(query, top_k=3)
+        pdf_chunks = search_pdf_chunks(query, top_k=2)
         prompt += f"[PDF 인용 근거]\n{pdf_chunks}\n\n"
 
     # 2. 웹/뉴스 RAG 근거 자동 추가 (SerpAPI)

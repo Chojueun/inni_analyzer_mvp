@@ -1,16 +1,12 @@
 #agent_executor.py
-
-import os
 import dspy
 from dspy import Module, Signature, InputField, OutputField
 from dspy.teleprompt.bootstrap import BootstrapFewShot
 from dspy.predict.react import ReAct
-from dotenv import load_dotenv
+from init_dspy import *
 
 
 # ✅ Signature: 입력/출력 정의
-from dspy import Signature, InputField, OutputField
-
 class AnalysisSignature(Signature):
     input = InputField(desc="고도화된 분석 프롬프트. 사용자 입력, PDF 요약, 이전 단계 요약, 분석 목표와 tasks 포함")
 
