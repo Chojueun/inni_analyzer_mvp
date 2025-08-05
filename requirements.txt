@@ -12,3 +12,4 @@ reportlab
 chromadb
 PyMuPDF
 sentence-transformers
+python-docx

@@ -1,6 +1,6 @@
+
 # app.py
 import streamlit as st
-from agent_executor import InniAgent
 from prompt_loader import load_prompt_blocks
 from user_state import (
     init_user_state, get_user_inputs, set_pdf_summary,
@@ -15,11 +15,24 @@ from summary_generator import summarize_pdf, extract_site_analysis_fields
 from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
 from user_state import append_step_history  # 🔺 파일 상단 import도 추가하세요
 from difflib import SequenceMatcher
 from utils_pdf_vector import save_pdf_chunks_to_chroma
 from init_dspy import *
+from agent_executor import (
+    run_requirement_table,
+    run_ai_reasoning,
+    run_precedent_comparison,
+    run_strategy_recommendation,
+)
+from dsl_to_prompt import (
+    prompt_requirement_table,
+    prompt_ai_reasoning,
+    prompt_precedent_comparison,
+    prompt_strategy_recommendation,
+)
+from report_generator import generate_pdf_report, generate_word_report
+
 
 
 def is_duplicate_content(prev_result, curr_result):
@@ -58,6 +71,12 @@ if uploaded_pdf:
     set_pdf_summary(pdf_summary)
     st.session_state["site_fields"] = extract_site_analysis_fields(pdf_text)
     st.sidebar.success("✅ PDF 요약 완료!")
+
+# PDF 업로드 섹션에 상태 표시 추가
+if uploaded_pdf:
+    st.sidebar.success("✅ PDF 업로드 완료")
+else:
+    st.sidebar.warning("⚠️ PDF를 업로드해주세요")
 
 # ─── 2. 블럭 로드 & 단계 선택 ───────────────────────────
 blocks       = load_prompt_blocks()
@@ -120,6 +139,31 @@ if cmd.strip() == "시작":
     st.success("모든 입력이 완료되었습니다. ‘분석 진행’을 입력하세요.")
 
 elif cmd.strip() == "분석 진행" or cmd.strip().endswith("단계 진행"):
+    # 🔍 1. PDF 업로드 상태 확인
+    if not uploaded_pdf:
+        st.error("❌ PDF를 먼저 업로드해주세요!")
+        st.stop()
+    
+    # 🔍 2. 필수 입력값 검증
+    required_fields = ["project_name", "owner", "site_location", "site_area", "building_type", "project_goal"]
+    missing_fields = [field for field in required_fields if not user_inputs.get(field, "").strip()]
+    
+    if missing_fields:
+        st.error(f"❌ 다음 필수 정보를 입력해주세요: {', '.join(missing_fields)}")
+        st.stop()
+    
+    # 🔍 3. PDF 처리 상태 확인 및 디버깅
+    pdf_summary = get_pdf_summary()
+    if not pdf_summary:
+        st.error("❌ PDF 처리가 완료되지 않았습니다. PDF를 다시 업로드해주세요.")
+        st.stop()
+    
+    # 🔍 4. PDF 요약 정보 디버깅 출력
+    st.info("📋 PDF 요약 정보:")
+    st.info(f"PDF 요약 길이: {len(pdf_summary) if pdf_summary else 0}자")
+    if pdf_summary:
+        st.info(f"PDF 요약 미리보기: {pdf_summary[:200]}...")
+    
     # 실행할 단계 번호 결정
     if cmd.strip() == "분석 진행":
         idx = get_current_step_index()
@@ -127,129 +171,300 @@ elif cmd.strip() == "분석 진행" or cmd.strip().endswith("단계 진행"):
         try:
             idx = int(cmd.strip().replace("단계 진행", "")) - 1
         except ValueError:
-            st.error("‘N단계 진행’ 형식으로 입력해주세요.")
+            st.error("'N단계 진행' 형식으로 입력해주세요.")
             idx = None
 
     # 유효성 검사
     if idx is not None and 0 <= idx < len(ordered_blocks):
         blk = ordered_blocks[idx]
+        step_id = blk["id"]
+        prev = "\n".join(f"[{h['step']}] {h['result']}" for h in st.session_state.cot_history)
+        
+        # 🔍 5. site_fields 안전하게 가져오기
+        site_fields = st.session_state.get("site_fields", {})
+        if not site_fields:
+            st.warning("⚠️ PDF에서 사이트 정보를 추출하지 못했습니다. 기본값으로 진행합니다.")
+            site_fields = {
+                "site_location": user_inputs.get("site_location", ""),
+                "site_area": user_inputs.get("site_area", ""),
+                "zoning": user_inputs.get("zoning", "")
+            }
 
-        # 이전 결과 전체 병합
-        prev = "\n".join(f"[{h['step']}] {h['result']}"
-                         for h in st.session_state.cot_history)
+        # 단계별 상태 초기화
+        if "current_step_outputs" not in st.session_state:
+            st.session_state.current_step_outputs = {}
+        if st.session_state.current_step_outputs.get("step_id") != step_id:
+            st.session_state.current_step_outputs = {"step_id": step_id}
+        outputs = st.session_state.current_step_outputs
 
-        site_fields = None
-        if blk["id"] == "site_and_regulation_analysis":
-            site_fields = st.session_state.get("site_fields")
-            # 디버깅: site_fields 상태 확인
-            st.info(f"🔍 두 번째 단계 실행 - site_fields: {site_fields is not None}")
-
-        prompt_tpl = convert_dsl_to_prompt(
-            dsl_block=blk["content_dsl"],
-            user_inputs=user_inputs,
-            previous_summary=prev,
-            pdf_summary=get_pdf_summary(),
-            site_fields=site_fields
-        )
-
-        # 전체 프롬프트 합성
-        full_prompt = merge_prompt_content(
-            block_prompt=prompt_tpl,
-            user_info=user_inputs,
-            pdf_summary=get_pdf_summary(),
-            step_context=prev
-        )
-
-        # 화면에 표시
-        st.markdown(f"### ▶ {blk['title']}")
-        st.code(full_prompt, language="markdown")
-
-        # GPT 분석 실행
-        with st.spinner("🔎 분석 중..."):
-            result = InniAgent("CoT").run_analysis(full_prompt)
-        # 🟦 중복 감지/Refine(이전 단계와 표 내용 80% 이상 동일시)
-        if st.session_state.cot_history:
-            prev = st.session_state.cot_history[-1]["result"]
-            if is_duplicate_content(prev, result):
-                st.warning("이전 단계와 분석 내용이 너무 유사합니다. 본 단계만의 신규 데이터·비교·분석을 추가하세요.")
-                # Self-Refine: GPT에게 "이전 단계와 중복 금지, 반드시 신규 분석" 지시문 추가 후 재호출
-                new_prompt = full_prompt + "\n\n⚠️ 반드시 직전 단계 표/내용과 중복 없이 본 단계 고유의 비교, 수치, 법규, 리스크, 차별화 분석만 포함하세요."
-                result = InniAgent("CoT").run_analysis(new_prompt)
-
-
-        # 중복 검사
-        if st.session_state.cot_history:
-            prev_result = st.session_state.cot_history[-1]['result']
-            if is_duplicate_content(prev_result, result):
-                st.warning("이전 결과와 유사한 내용이 있습니다. 중복 방지를 위해 결과를 수정해주세요.")
-                st.stop()
-
-        st.success("✅ 분석 완료")
-        st.markdown(result)
-
-        # 결과 누적
-        st.session_state.cot_history.append({
-            "step": blk["title"],
-            "result": result,
-            "summary": extract_summary(result),
-            "insight": extract_insight(result)
-        })
-        save_step_result(blk["id"], result)
-
-        # ⬇️ step_history에도 요약 및 인사이트 포함해 누적
-        append_step_history(
-            step_id=blk["id"],
-            title=blk["title"],
-            prompt=full_prompt,
-            result=result
-        )
-
-        # 단계 인덱스 업데이트
-        if cmd.strip() == "분석 진행":
-            next_step()
+        # 이미 완료된 단계인지 확인
+        cot_done_steps = [h['step'] for h in st.session_state.cot_history]
+        if blk['title'] in cot_done_steps:
+            st.info(f"이미 분석이 완료된 단계입니다. 다음 단계로 이동하세요.")
         else:
-            st.session_state.current_step_index = idx + 1
+            # 🔥 새로운 통합 분석 버튼
+            if st.button(f"🔍 {blk['title']} 통합 분석 실행", key=f"analyze_{step_id}_{idx}"):
+                with st.spinner(f"{blk['title']} 통합 분석 중..."):
+                    #  6. PDF 요약을 딕셔너리 형태로 변환
+                    pdf_summary_dict = {
+                        "pdf_summary": pdf_summary,
+                        "project_name": user_inputs.get("project_name", ""),
+                        "owner": user_inputs.get("owner", ""),
+                        "site_location": user_inputs.get("site_location", ""),
+                        "site_area": user_inputs.get("site_area", ""),
+                        "building_type": user_inputs.get("building_type", ""),
+                        "project_goal": user_inputs.get("project_goal", "")
+                    }
+                    
+                    # 1. 통합 프롬프트 생성 (PDF 요약을 딕셔너리로 전달)
+                    base_prompt = convert_dsl_to_prompt(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
+                    
+                    # 🔍 프롬프트 미리보기 제거 - 깔끔하게 3개 정보만 표시
+                    
+                    # 2. 단계별로 다른 분석 실행
+                    results = {}
+                    output_structure = blk["content_dsl"].get("output_structure", [])
+                    
+                    if output_structure:
+                        # output_structure에 따라 동적으로 분석 실행
+                        for i, structure in enumerate(output_structure):
+                            if i == 0:
+                                prompt = prompt_requirement_table(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
+                                results[f"result_{i}"] = run_requirement_table(prompt)
+                            elif i == 1:
+                                prompt = prompt_ai_reasoning(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
+                                results[f"result_{i}"] = run_ai_reasoning(prompt)
+                            elif i == 2:
+                                prompt = prompt_precedent_comparison(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
+                                results[f"result_{i}"] = run_precedent_comparison(prompt)
+                            elif i == 3:
+                                prompt = prompt_strategy_recommendation(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
+                                results[f"result_{i}"] = run_strategy_recommendation(prompt)
+                    else:
+                        # 기본 4개 분석 (fallback)
+                        # 📊 요구사항표
+                        prompt_req = base_prompt + "\n\n⚠️ 반드시 '요구사항 정리표' 항목만 표로 생성. 그 외 항목은 출력하지 마세요."
+                        results["requirement_table"] = run_requirement_table(prompt_req)
+                        
+                        # 🧠 AI 추론
+                        prompt_reason = base_prompt + "\n\n⚠️ 반드시 'AI reasoning' 항목(Chain-of-Thought 논리 해설)만 생성. 그 외 항목은 출력하지 마세요."
+                        results["ai_reasoning"] = run_ai_reasoning(prompt_reason)
+                        
+                        # 🧾 유사사례 비교
+                        prompt_precedent = base_prompt + "\n\n⚠️ 반드시 '유사 사례 비교' 표 또는 비교 해설만 출력. 그 외 항목은 출력하지 마세요."
+                        results["precedent_comparison"] = run_precedent_comparison(prompt_precedent)
+                        
+                        # ✅ 전략 제언
+                        prompt_strategy = base_prompt + "\n\n⚠️ 반드시 '전략적 제언 및 시사점'만 출력. 그 외 항목은 출력하지 마세요."
+                        results["strategy_recommendation"] = run_strategy_recommendation(prompt_strategy)
+                    
+                    # 3. 결과를 session_state에 저장
+                    outputs.update(results)
+                    outputs["saved"] = True
+                    
+                    # 4. 탭으로 분할 표시 (단계별로 다른 구조)
+                    st.markdown(f"### 📋 {blk['title']} 분석 결과")
+                    
+                    # JSON에서 output_structure 가져오기
+                    output_structure = blk["content_dsl"].get("output_structure", [])
+                    
+                    if output_structure:
+                        # 동적으로 탭 생성
+                        tab_names = output_structure
+                        tabs = st.tabs(tab_names)
+                        
+                        # 각 탭에 해당하는 결과 표시
+                        for i, (tab, tab_name) in enumerate(zip(tabs, tab_names)):
+                            with tab:
+                                st.markdown(f"#### {tab_name}")
+                                result_key = f"result_{i}"
+                                if result_key in results:
+                                    st.markdown(results[result_key])
+                                else:
+                                    st.info("분석 결과가 준비되지 않았습니다.")
+                    else:
+                        # 기본 4개 탭 (fallback)
+                        tab1, tab2, tab3, tab4 = st.tabs([" 요구사항", " AI 추론", " 사례비교", "✅ 전략제언"])
+                        
+                        with tab1:
+                            st.markdown("#### 📊 요구사항 정리표")
+                            st.markdown(results.get("requirement_table", "결과 없음"))
+                        
+                        with tab2:
+                            st.markdown("#### 🧠 AI 추론 해설")
+                            st.markdown(results.get("ai_reasoning", "결과 없음"))
+                        
+                        with tab3:
+                            st.markdown("#### 🧾 유사 사례 비교")
+                            st.markdown(results.get("precedent_comparison", "결과 없음"))
+                        
+                        with tab4:
+                            st.markdown("#### ✅ 전략적 제언 및 시사점")
+                            st.markdown(results.get("strategy_recommendation", "결과 없음"))
+                    
+                    # 5. 전체 결과를 cot_history에 저장 (동적으로 키 처리)
+                    output_structure = blk["content_dsl"].get("output_structure", [])
+                    
+                    if output_structure:
+                        # output_structure에 따라 동적으로 결과 조합
+                        full_result_parts = []
+                        for i, structure in enumerate(output_structure):
+                            result_key = f"result_{i}"
+                            if result_key in results:
+                                full_result_parts.append(f"{structure}\n{results[result_key]}")
+                        
+                        full_result = "\n\n".join(full_result_parts)
+                    else:
+                        # 기본 4개 키 사용 (fallback)
+                        full_result = (
+                            "📊 요구사항 정리표\n" + results.get("requirement_table", "결과 없음") + "\n\n" +
+                            "🧠 AI 추론 해설\n" + results.get("ai_reasoning", "결과 없음") + "\n\n" +
+                            "🧾 유사 사례 비교\n" + results.get("precedent_comparison", "결과 없음") + "\n\n" +
+                            "✅ 전략적 제언 및 시사점\n" + results.get("strategy_recommendation", "결과 없음")
+                        )
+                    
+                    st.session_state.cot_history.append({
+                        "step": blk["title"],
+                        "result": full_result,
+                        "summary": extract_summary(full_result),
+                        "insight": extract_insight(full_result)
+                    })
+                    
+                    save_step_result(blk["id"], full_result)
+                    append_step_history(
+                        step_id=blk["id"],
+                        title=blk["title"],
+                        prompt="통합 분석",
+                        result=full_result
+                    )
+                    
+                    st.success("✅ 통합 분석이 완료되었습니다! 다음 단계로 이동하세요.")
+                    st.session_state.current_step_index = idx + 1
+                    st.session_state.current_step_outputs = {}
 
-        # 다음 안내
+            # 📊 진행 상황 표시
+            if outputs.get("saved"):
+                st.info("✅ 이 단계의 분석이 완료되었습니다.")
+            else:
+                st.info("💡 위의 '통합 분석 실행' 버튼을 클릭하여 분석을 시작하세요.")
+
+        # 안내 메시지
         if st.session_state.current_step_index < len(ordered_blocks):
             st.info(
-                f"■ ‘{blk['title']}’ 완료. 다음: "
-                f"‘{st.session_state.current_step_index+1}단계 진행’"
+                f"■ '{blk['title']}' 완료. 다음: "
+                f"'{st.session_state.current_step_index+1}단계 진행'"
             )
         else:
-            st.info("■ 모든 단계 완료! ‘보고서 생성’을 입력하세요.")
+            st.info("■ 모든 단계 완료! '보고서 생성'을 입력하세요.")
+
     else:
         st.warning("유효한 단계가 아닙니다. 선택된 단계와 순서를 확인해주세요.")
 
 elif cmd.strip() == "보고서 생성":
-    cot = st.session_state.cot_history
-    if cot:
-        # Markdown 다운로드
-        md = "# Inni Analyzer 보고서\n\n"
-        for s in cot:
-            md += f"## {s['step']}\n\n{s['result']}\n\n---\n\n"
-        st.sidebar.download_button("📥 Markdown 다운로드", md, "inni_report.md", "text/markdown")
-
-        # PDF 다운로드
-        buf = BytesIO()
-        # 한글 폰트 등록
-        pdfmetrics.registerFont(TTFont('NanumGothic', 'NanumGothicCoding.ttf'))
-        c = canvas.Canvas(buf)
-        y = 800
-        c.setFont('NanumGothic', 12)
-        for s in cot:
-            c.drawString(50, y, s["step"])
-            y -= 20
-            for line in s["result"].split("\n"):
-                c.drawString(60, y, line[:80])
-                y -= 15
-                if y < 50:
-                    c.showPage()
-                    y = 800
-            y -= 10
-        c.save()
-        buf.seek(0)
-        st.sidebar.download_button("📥 PDF 다운로드", buf, "inni_report.pdf", "application/pdf")
-        st.success("보고서가 생성되었습니다.")
+    if not st.session_state.cot_history:
+        st.error("❌ 생성된 분석 결과가 없습니다. 먼저 분석을 진행해주세요.")
     else:
-        st.warning("분석된 결과가 없습니다. 먼저 단계를 실행해주세요.")
+        st.markdown("### 📄 보고서 생성")
+        
+        # 프로젝트 정보
+        project_info = f"""
+# 한국 {user_inputs.get('project_name', '프로젝트')} 분석 보고서
+
+## 한국 프로젝트 기본 정보
+- **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
+- **소유자**: {user_inputs.get('owner', 'N/A')}
+- **위치**: {user_inputs.get('site_location', 'N/A')}
+- **면적**: {user_inputs.get('site_area', 'N/A')}
+- **건물유형**: {user_inputs.get('building_type', 'N/A')}
+- **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
+
+---
+"""
+        
+        # 분석 결과 수집
+        analysis_content = ""
+        for i, entry in enumerate(st.session_state.cot_history, 1):
+            analysis_content += f"""
+## {i}. {entry['step']}
+
+### 📊 요약
+{entry.get('summary', '요약 정보 없음')}
+
+### 🧠 인사이트
+{entry.get('insight', '인사이트 정보 없음')}
+
+### 📋 상세 분석 결과
+{entry['result']}
+
+---
+"""
+        
+        # 전체 보고서 내용
+        full_report = project_info + analysis_content
+        
+        # 보고서 미리보기
+        st.markdown("#### 📄 보고서 미리보기")
+        st.markdown(full_report)
+        
+        # PDF 생성 버튼
+        if st.button("💾 PDF 보고서 다운로드", key="download_pdf"):
+            try:
+                pdf_bytes = generate_pdf_report(full_report, user_inputs)
+                st.download_button(
+                    label="💾 PDF 다운로드",
+                    data=pdf_bytes,
+                    file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.pdf",
+                    mime="application/pdf"
+                )
+                st.success("✅ PDF 보고서가 생성되었습니다!")
+            except Exception as e:
+                st.error(f"❌ PDF 생성 중 오류 발생: {e}")
+        
+        # Word 문서 생성 버튼 (조건부)
+        try:
+            from report_generator import DOCX_AVAILABLE
+            if DOCX_AVAILABLE:
+                if st.button("💾 Word 문서 다운로드", key="download_word"):
+                    try:
+                        docx_bytes = generate_word_report(full_report, user_inputs)
+                        st.download_button(
+                            label="💾 Word 다운로드",
+                            data=docx_bytes,
+                            file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
+                        st.success("✅ Word 문서가 생성되었습니다!")
+                    except Exception as e:
+                        st.error(f"❌ Word 문서 생성 중 오류 발생: {e}")
+            else:
+                st.info("ℹ️ Word 문서 기능을 사용하려면 'pip install python-docx'를 실행해주세요.")
+        except ImportError:
+            st.info("ℹ️ Word 문서 기능을 사용하려면 'pip install python-docx'를 실행해주세요.")
+
+# app.py에 추가할 디버깅 코드
+
+# 환경변수 확인
+import os
+st.sidebar.markdown("### 🔧 시스템 상태")
+st.sidebar.info(f"Claude API: {'✅' if os.environ.get('ANTHROPIC_API_KEY') else '❌'}")
+st.sidebar.info(f"SerpAPI: {'✅' if os.environ.get('SERP_API_KEY') else '❌'}")
+
+# PDF 업로드 시 디버깅 정보
+if uploaded_pdf:
+    st.sidebar.success("✅ PDF 업로드 완료")
+    
+    # PDF 처리 상태 확인
+    if st.session_state.get("pdf_summary"):
+        st.sidebar.success("✅ PDF 요약 완료")
+    else:
+        st.sidebar.warning("⚠️ PDF 요약 처리 중...")
+    
+    # 벡터 DB 상태 확인
+    try:
+        from utils_pdf_vector import collection
+        if collection:
+            st.sidebar.success("✅ 벡터 DB 연결 완료")
+        else:
+            st.sidebar.error("❌ 벡터 DB 연결 실패")
+    except:
+        st.sidebar.error("❌ 벡터 DB 초기화 실패")

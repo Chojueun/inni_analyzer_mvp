@@ -1,3 +1,4 @@
+
 #utils.py
 
 import fitz  # PyMuPDF
@@ -119,4 +120,3 @@ def merge_prompt_content(
 
     # 전체 구성
     return "\n\n".join(sections).strip()
-
