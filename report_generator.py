@@ -1,3 +1,4 @@
+#report_generator.py
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics

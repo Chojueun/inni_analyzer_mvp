@@ -9,7 +9,7 @@ import os
 # 1. 임베딩 모델 로드 (가볍고 무료)
 try:
     embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    st.success("✅ 임베딩 모델 로드 완료")
+    #st.success("✅ 임베딩 모델 로드 완료")
 except Exception as e:
     st.error(f"❌ 임베딩 모델 로드 실패: {e}")
     embedder = None
@@ -18,7 +18,7 @@ except Exception as e:
 try:
     chroma_client = chromadb.Client()
     collection = chroma_client.get_or_create_collection("pdf_chunks")
-    st.success("✅ ChromaDB 연결 완료")
+    #st.success("✅ ChromaDB 연결 완료")
 except Exception as e:
     st.error(f"❌ ChromaDB 연결 실패: {e}")
     collection = None
