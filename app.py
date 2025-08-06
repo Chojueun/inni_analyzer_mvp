@@ -98,7 +98,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-
 # ──────────────────────────────
 # 3. API 사용량 카운트 기능 (직접 숫자로)
 if "api_calls" not in st.session_state:
@@ -114,38 +113,117 @@ with st.sidebar:
     st.markdown("### 🔧 API 사용량")
     st.info(f"API 호출 횟수: {st.session_state.api_calls}")
 
-
 # ─── 초기화 ─────────────────────────────────────────────
 init_user_state()
 
+# ─── 1. 프로젝트 기본 정보 입력 (탭 위에 배치) ─────────────────────────
+st.markdown("### 프로젝트 기본 정보")
 
-# ─── 1. 사용자 입력 & PDF 업로드 ─────────────────────────
-st.sidebar.header("📥 프로젝트 기본 정보 입력")
-user_inputs = get_user_inputs()
+# 접을 수 있는 섹션
+with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('show_project_info', True)):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.text_input("프로젝트명", key="project_name", placeholder="예: Woori Bank Dasan Campus")
+        st.text_input("건축주", key="owner", placeholder="예: Woori Bank")
+        st.text_input("대지위치", key="site_location", placeholder="예: Namyangju-si, Gyeonggi-do")
+        st.text_input("대지면적", key="site_area", placeholder="예: 30,396.0㎡ ")
+    
+    with col2:
+        st.text_input("용적률", key="zoning", placeholder="예: General Residential Zone")
+        st.text_input("건물용도", key="building_type", placeholder="예: Training Center")
+        st.text_input("프로젝트 목표", key="project_goal", placeholder="예: Develop an innovative training campus...")
+    
+    # PDF 업로드
+    uploaded_pdf = st.file_uploader("📎 PDF 업로드", type=["pdf"])
+    if uploaded_pdf:
+        # PDF 처리 로직 (기존 app.py에서 가져옴)
+        pdf_bytes = uploaded_pdf.read()
+        temp_path = "temp_uploaded.pdf"
+        with open(temp_path, "wb") as f:
+            f.write(pdf_bytes)
+        
+        from utils_pdf_vector import save_pdf_chunks_to_chroma
+        save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA")
+        st.success("✅ PDF 벡터DB 저장 완료!")
+        
+        # PDF 텍스트 추출 및 요약
+        from utils import extract_text_from_pdf
+        from summary_generator import summarize_pdf, extract_site_analysis_fields
+        pdf_text = extract_text_from_pdf(pdf_bytes)
+        pdf_summary = summarize_pdf(pdf_text)
+        set_pdf_summary(pdf_summary)
+        st.session_state["site_fields"] = extract_site_analysis_fields(pdf_text)
+        st.session_state["uploaded_pdf"] = uploaded_pdf
+        st.success("✅ PDF 요약 완료!")
+    
+    # 정보 입력 완료 버튼
+    if st.button("정보 입력 완료", type="primary"):
+        st.session_state.show_project_info = False
+        st.success("프로젝트 정보 입력이 완료되었습니다!")
+        st.rerun()
 
-uploaded_pdf = st.sidebar.file_uploader("📎 PDF 업로드", type=["pdf"])
-if uploaded_pdf:
-    # PDF 처리
-    pdf_bytes = uploaded_pdf.read()
-    temp_path = "temp_uploaded.pdf"
-    with open(temp_path, "wb") as f:
-        f.write(pdf_bytes)
-    save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA")
-    st.sidebar.success("✅ PDF 벡터DB 저장 완료!")
-
-    # PDF 텍스트 추출 및 요약
-    from utils import extract_text_from_pdf
-    pdf_text = extract_text_from_pdf(pdf_bytes)
-    pdf_summary = summarize_pdf(pdf_text)
-    set_pdf_summary(pdf_summary)
-    st.session_state["site_fields"] = extract_site_analysis_fields(pdf_text)
-    st.sidebar.success("✅ PDF 요약 완료!")
-
-# PDF 업로드 상태 표시
-if uploaded_pdf:
-    st.sidebar.success("✅ PDF 업로드 완료")
-else:
-    st.sidebar.warning("⚠️ PDF를 업로드해주세요")
+# ─── 사이드바에 전체 프롬프트 블록 리스트 (프로젝트 정보 완료 후 표시) ─────────────────────────
+if not st.session_state.get('show_project_info', True):
+    st.sidebar.markdown("### 📋 전체 분석 단계")
+    
+    # 프롬프트 블록 로드
+    from prompt_loader import load_prompt_blocks
+    blocks = load_prompt_blocks()
+    extra_blocks = blocks["extra"]
+    
+    # 현재 선택된 단계들
+    current_step_ids = set()
+    if st.session_state.get('workflow_steps'):
+        current_step_ids = {step.id for step in st.session_state.workflow_steps}
+    
+    # 추천 단계들 (제외)
+    recommended_step_ids = set()
+    if st.session_state.get('current_workflow'):
+        from analysis_system import AnalysisSystem
+        system = AnalysisSystem()
+        for objective in st.session_state.get('selected_objectives', []):
+            if objective in system.recommended_steps:
+                recommended_step_ids.update({step.id for step in system.recommended_steps[objective]})
+    
+    st.sidebar.write("**선택 가능한 단계**:")
+    
+    # 단계 추가 상태 관리
+    if 'sidebar_step_added' not in st.session_state:
+        st.session_state.sidebar_step_added = False
+    
+    for block in extra_blocks:
+        block_id = block["id"]
+        is_selected = block_id in current_step_ids
+        is_recommended = block_id in recommended_step_ids
+        
+        # 모든 단계를 표시 (추천 단계도 포함)
+        if is_selected:
+            st.sidebar.markdown(f"~~{block['title']}~~ *(선택됨)*")
+        else:
+            # 선택 가능한 단계
+            if st.sidebar.button(f"➕ {block['title']}", key=f"add_block_{block_id}"):
+                # 단계 추가
+                from analysis_system import AnalysisStep
+                new_step = AnalysisStep(
+                    id=block_id,
+                    title=block['title'],
+                    description=block.get('description', ''),
+                    is_optional=True,
+                    order=len(st.session_state.get('workflow_steps', [])) + 1,
+                    category="추가 단계"
+                )
+                
+                if 'workflow_steps' not in st.session_state:
+                    st.session_state.workflow_steps = []
+                
+                st.session_state.workflow_steps.append(new_step)
+                st.session_state.sidebar_step_added = True
+                st.sidebar.success(f"'{block['title']}' 단계가 추가되었습니다!")
+    
+    # 사이드바 단계 추가 후 상태 초기화
+    if st.session_state.sidebar_step_added:
+        st.session_state.sidebar_step_added = False
 
 # ─── 2. 새로운 분석 시스템 ───────────────────────────
 from analysis_system import AnalysisSystem, PurposeType, ObjectiveType
@@ -241,7 +319,7 @@ with tab2:
 
 # ─── 4. 누적된 이전 분석 결과 ───────────────────────────
 if st.session_state.cot_history:
-    st.markdown("### 🧠 누적 분석 결과")
+    st.markdown("### 누적 분석 결과")
     for entry in st.session_state.cot_history:
         st.markdown(f"#### {entry['step']}")
         st.markdown(f"**요약:** {entry.get('summary', '')}")
@@ -259,11 +337,12 @@ if cmd.strip() == "시작":
 
 elif cmd.strip() == "분석 진행" or cmd.strip().endswith("단계 진행"):
     # PDF 업로드 상태 확인
-    if not uploaded_pdf:
+    if not st.session_state.get('uploaded_pdf'):
         st.error("❌ PDF를 먼저 업로드해주세요!")
         st.stop()
     
     # 필수 입력값 검증
+    user_inputs = get_user_inputs()
     required_fields = ["project_name", "owner", "site_location", "site_area", "building_type", "project_goal"]
     missing_fields = [field for field in required_fields if not user_inputs.get(field, "").strip()]
     
@@ -550,9 +629,8 @@ elif cmd.strip() == "보고서 생성":
         except ImportError:
             st.info("ℹ️ Word 문서 기능을 사용하려면 'pip install python-docx'를 실행해주세요.")
 
-
 # PDF 업로드 시 디버깅 정보
-if uploaded_pdf:
+if st.session_state.get('uploaded_pdf'):
     st.sidebar.success("✅ PDF 업로드 완료")
     
     # PDF 처리 상태 확인

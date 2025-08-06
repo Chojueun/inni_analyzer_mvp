@@ -44,6 +44,120 @@ def init_analysis_system():
         st.session_state.current_step_index = 0
     if "cot_history" not in st.session_state:
         st.session_state.cot_history = []
+    if "show_project_info" not in st.session_state:
+        st.session_state.show_project_info = True
+
+def render_project_info_section():
+    """프로젝트 기본 정보 입력 섹션"""
+    st.markdown("### 📋 프로젝트 기본 정보")
+    
+    # 접을 수 있는 섹션
+    with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('show_project_info', True)):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.text_input("프로젝트명", key="project_name", placeholder="프로젝트명을 입력하세요")
+            st.text_input("건축주", key="owner", placeholder="건축주명을 입력하세요")
+            st.text_input("대지위치", key="site_location", placeholder="대지 위치를 입력하세요")
+            st.text_input("대지면적", key="site_area", placeholder="대지면적을 입력하세요")
+        
+        with col2:
+            st.text_input("건물용도", key="building_type", placeholder="건물용도를 입력하세요")
+            st.text_input("용적률", key="floor_area_ratio", placeholder="용적률을 입력하세요")
+            st.text_input("건폐율", key="building_coverage_ratio", placeholder="건폐율을 입력하세요")
+            st.text_input("프로젝트 목표", key="project_goal", placeholder="프로젝트 목표를 입력하세요")
+        
+        # PDF 업로드
+        uploaded_pdf = st.file_uploader("📎 PDF 업로드", type=["pdf"])
+        if uploaded_pdf:
+            # PDF 처리 로직 (기존 app.py에서 가져옴)
+            pdf_bytes = uploaded_pdf.read()
+            temp_path = "temp_uploaded.pdf"
+            with open(temp_path, "wb") as f:
+                f.write(pdf_bytes)
+            
+            from utils_pdf_vector import save_pdf_chunks_to_chroma
+            save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA")
+            st.success("✅ PDF 벡터DB 저장 완료!")
+            
+            # PDF 텍스트 추출 및 요약
+            from utils import extract_text_from_pdf
+            from summary_generator import summarize_pdf, extract_site_analysis_fields
+            pdf_text = extract_text_from_pdf(pdf_bytes)
+            pdf_summary = summarize_pdf(pdf_text)
+            st.session_state["pdf_summary"] = pdf_summary
+            st.session_state["site_fields"] = extract_site_analysis_fields(pdf_text)
+            st.session_state["uploaded_pdf"] = uploaded_pdf
+            st.success("✅ PDF 요약 완료!")
+        
+        # 정보 입력 완료 버튼
+        if st.button("정보 입력 완료", type="primary"):
+            st.session_state.show_project_info = False
+            st.success("프로젝트 정보 입력이 완료되었습니다!")
+            st.rerun()
+
+def render_prompt_blocks_sidebar():
+    """프롬프트 분석 단계 전체 리스트 사이드바"""
+    st.sidebar.markdown("### 📋 전체 분석 단계")
+    
+    # 프롬프트 블록 로드
+    from prompt_loader import load_prompt_blocks
+    blocks = load_prompt_blocks()
+    extra_blocks = blocks["extra"]
+    
+    # 현재 선택된 단계들
+    current_step_ids = set()
+    if st.session_state.get('workflow_steps'):
+        current_step_ids = {step.id for step in st.session_state.workflow_steps}
+    
+    # 추천 단계들 (제외)
+    recommended_step_ids = set()
+    if st.session_state.get('current_workflow'):
+        system = st.session_state.analysis_system
+        for objective in st.session_state.get('selected_objectives', []):
+            if objective in system.recommended_steps:
+                recommended_step_ids.update({step.id for step in system.recommended_steps[objective]})
+    
+    st.sidebar.write("**선택 가능한 단계**:")
+    
+    for block in extra_blocks:
+        block_id = block["id"]
+        is_selected = block_id in current_step_ids
+        is_recommended = block_id in recommended_step_ids
+        
+        # 추천 단계는 제외하고 표시
+        if not is_recommended:
+            # 선택된 단계는 회색으로 표시
+            if is_selected:
+                st.sidebar.markdown(f"~~{block['title']}~~ *(선택됨)*")
+            else:
+                # 선택 가능한 단계
+                if st.sidebar.button(f"➕ {block['title']}", key=f"add_block_{block_id}"):
+                    # 단계 추가
+                    from analysis_system import AnalysisStep
+                    new_step = AnalysisStep(
+                        id=block_id,
+                        title=block['title'],
+                        description=block.get('description', ''),
+                        is_optional=True,
+                        order=len(st.session_state.workflow_steps) + 1,
+                        category="추가 단계"
+                    )
+                    
+                    if 'workflow_steps' not in st.session_state:
+                        st.session_state.workflow_steps = []
+                    
+                    st.session_state.workflow_steps.append(new_step)
+                    st.sidebar.success(f"'{block['title']}' 단계가 추가되었습니다!")
+                    st.rerun()
+    
+    # 현재 선택된 단계들 표시
+    if current_step_ids:
+        st.sidebar.markdown("---")
+        st.sidebar.write("**현재 선택된 단계**:")
+        for step in st.session_state.get('workflow_steps', []):
+            step_type = "🔴" if step.is_required else "🟡" if step.is_recommended else "🟢"
+            st.sidebar.write(f"{step_type} {step.title}")
 
 def render_purpose_selection():
     """용도 선택 UI"""
@@ -268,18 +382,8 @@ def render_step_reordering():
     """단계 순서 변경 UI"""
     st.subheader("### 5. 단계 순서 변경")
     
-    # 현재 표시되는 단계들
-    current_steps = []
-    for step in st.session_state.workflow_steps:
-        if step.id not in st.session_state.removed_steps:
-            current_steps.append(step)
-    
-    # 추가된 단계들도 포함
-    system = st.session_state.analysis_system
-    for step_id in st.session_state.added_steps:
-        optional_step = next((step for step in system.optional_steps if step.id == step_id), None)
-        if optional_step:
-            current_steps.append(optional_step)
+    # 현재 표시되는 단계들 (순서 변경된 워크플로우 사용)
+    current_steps = st.session_state.workflow_steps.copy()  # 직접 복사 사용
     
     if not current_steps:
         st.warning("순서를 변경할 단계가 없습니다.")
@@ -289,14 +393,15 @@ def render_step_reordering():
     st.info("""
     **📋 순서 변경 방법**
     
+    **왜 단계 순서가 중요한가요?**
+    Chain of Thought (CoT) 방식으로 분석이 진행되기 때문입니다. 앞 단계의 분석 결과가 뒷 단계의 추론에 직접적으로 영향을 미치므로, 논리적 순서로 단계를 배치하는 것이 중요합니다.
+    
     1. **현재 순서 번호**: 이동할 단계의 현재 위치 번호
     2. **이동할 순서 번호**: 이동할 위치의 번호
     3. **순서 변경** 버튼을 클릭하여 실행
     
-    ** 사용 예시**:
+    **사용 예시**:
     - 3번째 단계를 1번째로 이동: 현재 순서 번호에 3, 이동할 순서 번호에 1 입력
-    - 1번째 단계를 5번째로 이동: 현재 순서 번호에 1, 이동할 순서 번호에 5 입력
-    - 2번째 단계를 4번째로 이동: 현재 순서 번호에 2, 이동할 순서 번호에 4 입력
     """)
     
     st.write("**현재 순서**:")
@@ -316,12 +421,12 @@ def render_step_reordering():
             st.write("")
             if st.button("순서 변경", key="change_order"):
                 if current_idx != target_idx:
-                    # 새로운 리스트 생성 (기존 리스트 수정하지 않음)
+                    # 새로운 리스트 생성
                     steps_copy = current_steps.copy()
                     step_to_move = steps_copy.pop(current_idx - 1)
                     steps_copy.insert(target_idx - 1, step_to_move)
                     
-                    # session_state 업데이트 (기존 리스트 교체)
+                    # session_state 업데이트
                     st.session_state.workflow_steps = steps_copy
                     st.session_state.button_counter += 1
                     st.success(f"단계 {current_idx}를 {target_idx}번째 위치로 이동했습니다!")
@@ -341,18 +446,8 @@ def render_workflow_confirmation():
     """워크플로우 확정 UI"""
     st.subheader("### 6. 분석 실행")
     
-    # 현재 표시되는 단계들
-    current_steps = []
-    for step in st.session_state.workflow_steps:
-        if step.id not in st.session_state.removed_steps:
-            current_steps.append(step)
-    
-    # 추가된 단계들도 포함
-    system = st.session_state.analysis_system
-    for step_id in st.session_state.added_steps:
-        optional_step = next((step for step in system.optional_steps if step.id == step_id), None)
-        if optional_step:
-            current_steps.append(optional_step)
+    # 현재 워크플로우 단계들 (순서 변경된 상태 그대로 사용)
+    current_steps = st.session_state.workflow_steps.copy()
     
     if not current_steps:
         st.warning("분석 단계가 없습니다.")
@@ -372,12 +467,7 @@ def render_workflow_confirmation():
         st.metric("필수 단계", required_steps)
     with col3:
         st.metric("선택 단계", optional_steps)
-    
-    # 최종 단계 목록 표시
-    st.write("**분석 단계 목록**:")
-    for i, step in enumerate(current_steps):
-        step_type = "🔴" if step.is_required else "🟡" if step.is_recommended else "🟢"
-        st.write(f"{i+1}. {step_type} **{step.title}** ({step.category})")
+
     
     # 분석 실행 버튼
     if st.button("분석 실행", type="primary", key="execute_analysis"):
@@ -667,6 +757,47 @@ def export_analysis_results():
         mime="application/json"
     )
 
+def render_legacy_analysis_system():
+    """기존 분석 방식 렌더링"""
+    # 기존 app.py의 분석 방식 로직
+    from prompt_loader import load_prompt_blocks
+    blocks = load_prompt_blocks()
+    extra_blocks = blocks["extra"]
+    blocks_by_id = {b["id"]: b for b in extra_blocks}
+
+    st.markdown("🔲 **분석에 포함할 단계 선택**")
+    selected_ids = []
+    for blk in extra_blocks:
+        if st.checkbox(blk["title"], key=f"sel_{blk['id']}"):
+            selected_ids.append(blk["id"])
+
+    # 선택된 블럭 순서 조정
+    if selected_ids:
+        selected_blocks = [blocks_by_id[sid] for sid in selected_ids]
+        titles = [blk["title"] for blk in selected_blocks]
+        sort_key = "block_sorter_" + "_".join(selected_ids)
+        
+        from streamlit_sortables import sort_items
+        ordered_titles = sort_items(titles, key=sort_key)
+        ordered_blocks = [next(blk for blk in selected_blocks if blk["title"] == t)
+                          for t in ordered_titles]
+
+        # 화면에 박스로 표시
+        cols = st.columns(len(ordered_blocks))
+        for col, blk in zip(cols, ordered_blocks):
+            col.markdown(
+                f"<div style='background:#e63946; color:white; "
+                f"padding:8px; border-radius:4px; text-align:center;'>"
+                f"{blk['title']}</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("---")
+    else:
+        ordered_blocks = []
+    
+    # 기존 방식의 ordered_blocks를 session_state에 저장
+    st.session_state.ordered_blocks = ordered_blocks if 'ordered_blocks' not in st.session_state else st.session_state.ordered_blocks
+
 def main():
     """메인 UI"""
     st.title("🏗️ ArchInsight 분석 시스템")
@@ -675,41 +806,60 @@ def main():
     # 시스템 초기화
     init_analysis_system()
     
-    # 1. 용도 선택
-    purpose = render_purpose_selection()
+    # 1. 프로젝트 기본 정보 입력 (탭 위에 배치)
+    render_project_info_section()
     
-    if purpose:
-        # 2. 목적 선택
-        objectives = render_objective_selection(purpose)
+    # 2. 프롬프트 분석 단계 사이드바
+    render_prompt_blocks_sidebar()
+    
+    # 3. 탭으로 기존 방식과 새로운 방식 선택
+    tab1, tab2 = st.tabs(["🏗️ 새로운 분석 시스템", "📋 기존 분석 방식"])
+    
+    with tab1:
+        st.markdown("### 🏗️ ArchInsight 분석 시스템")
+        st.write("프로젝트 용도와 목적에 따른 맞춤형 분석 워크플로우를 구성하세요.")
         
-        if objectives:
-            # 3. 워크플로우 제안
-            workflow = render_workflow_suggestion(purpose, objectives)
+        # 1. 용도 선택
+        purpose = render_purpose_selection()
+        
+        if purpose:
+            # 2. 목적 선택
+            objectives = render_objective_selection(purpose)
             
-            if workflow or st.session_state.workflow_suggested:
-                # 4. 번외 단계 추가
-                render_optional_steps_addition()
+            if objectives:
+                # 3. 워크플로우 제안
+                workflow = render_workflow_suggestion(purpose, objectives)
                 
-                # 5. 순서 변경
-                render_step_reordering()
-                
-                # 6. 분석 실행
-                render_workflow_confirmation()
-                
-                # 7. 분석 실행 중 (분석이 시작된 경우)
-                render_analysis_execution()
+                if workflow or st.session_state.workflow_suggested:
+                    # 4. 번외 단계 추가
+                    render_optional_steps_addition()
+                    
+                    # 5. 순서 변경
+                    render_step_reordering()
+                    
+                    # 6. 분석 실행
+                    render_workflow_confirmation()
+                    
+                    # 7. 분석 실행 중 (분석이 시작된 경우)
+                    render_analysis_execution()
+    
+    with tab2:
+        st.markdown("### 📋 기존 분석 방식")
+        # 기존 분석 방식 로직 (app.py에서 가져옴)
+        render_legacy_analysis_system()
     
     # 사이드바에 도움말
     with st.sidebar:
+        st.markdown("---")
         st.header("💡 도움말")
         st.write("""
-        1. **용도 선택**: 프로젝트의 주요 용도를 선택하세요
-        2. **목적 선택**: 분석하고자 하는 목적을 선택하세요 (다중 선택 가능)
-        3. **자동 제안**: 시스템이 적절한 분석 단계를 자동으로 제안합니다
-        4. **번외 추가**: 필요한 경우 추가 단계를 선택할 수 있습니다
-        5. **순서 변경**: 단계의 순서를 조정할 수 있습니다
-        6. **분석 실행**: 최종 워크플로우로 분석을 실행합니다
-        7. **명령어 입력**: '시작' → '분석 진행' → 'N단계 진행' 순서로 진행
+        1. **프로젝트 정보**: 상단에서 기본 정보를 입력하세요
+        2. **용도 선택**: 프로젝트의 주요 용도를 선택하세요
+        3. **목적 선택**: 분석하고자 하는 목적을 선택하세요
+        4. **자동 제안**: 시스템이 적절한 분석 단계를 자동으로 제안합니다
+        5. **추가 단계**: 사이드바에서 원하는 단계를 추가할 수 있습니다
+        6. **순서 변경**: 단계의 순서를 조정할 수 있습니다
+        7. **분석 실행**: 최종 워크플로우로 분석을 실행합니다
         """)
 
 if __name__ == "__main__":
