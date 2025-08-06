@@ -41,6 +41,7 @@ class ObjectiveType(Enum):
     SPACE_PLANNING = "공간계획"
     CONCEPT_RESEARCH = "컨셉리서치"
     RISK_ANALYSIS = "리스크분석"
+    DOCUMENT_ANALYSIS = "과업지시서 및 문서 분석"  # 이름 변경
     OTHER = "기타"
 
 @dataclass
@@ -90,14 +91,20 @@ class AnalysisSystem:
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.COST_ANALYSIS,
                 ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.SPACE_PLANNING
+                ObjectiveType.SPACE_PLANNING,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.RESIDENTIAL: [
                 ObjectiveType.MARKET_ANALYSIS,
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.COMMERCIAL: [
                 ObjectiveType.MARKET_ANALYSIS,
@@ -105,35 +112,49 @@ class AnalysisSystem:
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.BRANDING,
                 ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.SPACE_PLANNING
+                ObjectiveType.SPACE_PLANNING,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.CULTURAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.BRANDING,
                 ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.CONCEPT_RESEARCH
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.EDUCATIONAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.COST_ANALYSIS,
                 ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.LEGAL_REVIEW
+                ObjectiveType.LEGAL_REVIEW,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.MEDICAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.LEGAL_REVIEW,
                 ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.INDUSTRIAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.LEGAL_REVIEW,
                 ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.MIXED_USE: [
                 ObjectiveType.MARKET_ANALYSIS,
@@ -142,7 +163,8 @@ class AnalysisSystem:
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.COST_ANALYSIS,
                 ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.RISK_ANALYSIS
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.SPORTS: [
                 ObjectiveType.MARKET_ANALYSIS,
@@ -150,13 +172,17 @@ class AnalysisSystem:
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.COST_ANALYSIS
+                ObjectiveType.COST_ANALYSIS,
+                ObjectiveType.CONCEPT_RESEARCH,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ],
             PurposeType.CONTRACT_BIDDING: [
                 ObjectiveType.LEGAL_REVIEW,
                 ObjectiveType.RISK_ANALYSIS,
                 ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.DOCUMENT_ANALYSIS
             ]
         }
     
@@ -164,19 +190,35 @@ class AnalysisSystem:
         """필수 단계 로드 (프롬프트 기반)"""
         return [
             AnalysisStep(
-                id="requirement_analysis",
-                title="건축주 요구사항 분석",
-                description="건축주의 명시적/암묵적 요구사항을 모두 파악하여 프로젝트의 근본적인 목표와 방향성 설정",
+                id="doc_collector",
+                title="문서 구조 및 요구사항 매트릭스화",
+                description="입찰/계약 문서 전체 구조와 핵심정보, 시설별 상세 요구사항, 주요 섹션별 목적을 표로 정리",
                 is_required=True,
                 order=1,
-                category="기초"
+                category="문서분석"
+            ),
+            AnalysisStep(
+                id="context_analyzer",
+                title="건축주 의도 및 문맥 AI 추론",
+                description="문서 내 언어 패턴, 강조 표현, 문맥을 통해 건축주(발주처)의 암묵적 의도 및 우선순위를 AI로 추론",
+                is_required=True,
+                order=2,
+                category="문서분석"
+            ),
+            AnalysisStep(
+                id="requirements_extractor",
+                title="요구사항 분류 및 우선순위 도출",
+                description="문서 내 명시적/암묵적 요구사항을 입찰·설계·비용 등 카테고리로 구분, 우선순위 및 심사 포인트 도출",
+                is_required=True,
+                order=3,
+                category="문서분석"
             ),
             AnalysisStep(
                 id="site_regulation_analysis", 
                 title="대지 환경 및 법규 분석",
                 description="대상 대지의 잠재력과 제약사항을 다각적으로 분석해 후속 설계 전략의 현실적 기반을 마련",
                 is_required=True,
-                order=2,
+                order=4,
                 category="기초"
             ),
             AnalysisStep(
@@ -184,7 +226,7 @@ class AnalysisSystem:
                 title="과업 이해도 및 설계 주안점", 
                 description="InnoScan 결과와 과업지시서를 종합 분석해 설계 전제조건, KPI, 제약조건 등을 정리",
                 is_required=True,
-                order=3,
+                order=5,
                 category="기초"
             )
         ]
@@ -330,6 +372,32 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=4,
                     category="리스크분석"
+                )
+            ],
+            ObjectiveType.DOCUMENT_ANALYSIS: [
+                AnalysisStep(
+                    id="compliance_analyzer",
+                    title="법규·지침 준수 체크",
+                    description="요구사항별 관련 법령·지침 준수 여부 및 필수 인증·승인 절차 체크리스트 도출",
+                    is_recommended=True,
+                    order=6,  # 필수 단계 다음
+                    category="문서분석"
+                ),
+                AnalysisStep(
+                    id="risk_strategist",
+                    title="주요 리스크 도출 및 대응",
+                    description="요구사항 및 문서 상 충돌, 누락, 모호성 등 주요 리스크 도출 및 대응 방안 제시",
+                    is_recommended=True,
+                    order=7,
+                    category="문서분석"
+                ),
+                AnalysisStep(
+                    id="action_planner",
+                    title="실행 체크리스트 및 핵심 포인트",
+                    description="입찰·계약 준비를 위한 우선 수행과제, 일정, 담당자, 필수 기억사항 정리",
+                    is_recommended=True,
+                    order=8,
+                    category="문서분석"
                 )
             ]
         }

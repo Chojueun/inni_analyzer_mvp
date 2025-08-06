@@ -50,6 +50,12 @@ def init_analysis_system():
         st.session_state.show_next_step_button = False
     if "current_step_display_data" not in st.session_state:
         st.session_state.current_step_display_data = None
+    if "archirender_started" not in st.session_state:
+        st.session_state.archirender_started = False
+    if "narrative_started" not in st.session_state:
+        st.session_state.narrative_started = False
+    if "narrative_result" not in st.session_state:
+        st.session_state.narrative_result = None
 
 def render_project_info_section():
     """프로젝트 기본 정보 입력 섹션"""
@@ -263,6 +269,7 @@ def get_objective_description(objective: ObjectiveType) -> str:
         ObjectiveType.SPACE_PLANNING: "공간 계획, 면적 배분 등",
         ObjectiveType.CONCEPT_RESEARCH: "컨셉 개발, 아이디어 발굴 등",
         ObjectiveType.RISK_ANALYSIS: "리스크 분석, 위험요소 평가 등",
+        ObjectiveType.DOCUMENT_ANALYSIS: "과업지시서 및 입찰/계약 문서 분석, 요구사항 분류, 법규 준수 체크, 리스크 분석, 실행 계획 등",  # 업데이트
         ObjectiveType.OTHER: "기타 목적"
     }
     return descriptions.get(objective, "")
@@ -1000,7 +1007,7 @@ def render_tabbed_interface():
     image_generated = st.session_state.get('image_generated', False)
     
     # 모든 탭을 항상 표시하되, 분석 완료 여부에 따라 활성화
-    tab_names = ["🏗️ 분석", "🎨 이미지 생성", "📄 보고서"]
+    tab_names = ["🏗️ 분석", "🎨 이미지 생성", "🎭 Narrative", "📄 보고서"]  # Narrative 탭 추가
     
     # 탭 생성
     tabs = st.tabs(tab_names)
@@ -1018,8 +1025,17 @@ def render_tabbed_interface():
             st.info("⚠️ 먼저 분석을 완료해주세요.")
             st.write("분석이 완료되면 Midjourney 프롬프트를 생성하여 건축 이미지를 만들 수 있습니다.")
     
-    # 보고서 탭
+    # Narrative 탭 (새로 추가)
     with tabs[2]:
+        if analysis_completed:
+            render_narrative_tab()
+        else:
+            st.markdown("### 🎭 Narrative 생성")
+            st.info("⚠️ 먼저 분석을 완료해주세요.")
+            st.write("분석이 완료되면 건축설계 발표용 Narrative를 생성할 수 있습니다.")
+    
+    # 보고서 탭
+    with tabs[3]:  # 인덱스 변경
         if analysis_completed:
             render_report_tab()
         else:
@@ -1656,6 +1672,311 @@ def render_report_tab():
                 st.markdown(f"**{i+1}. {entry.get('step', f'단계 {i+1}')}**")
                 st.write(entry.get('result', ''))
                 st.divider()
+
+def render_narrative_tab():
+    """Narrative 생성 탭"""
+    st.markdown("### 🎭 Narrative 생성")
+    st.write("분석이 완료되면 건축설계 발표용 Narrative를 생성할 수 있습니다.")
+    
+    # 분석 완료 확인
+    if not st.session_state.get('analysis_completed', False):
+        st.warning("⚠️ 먼저 분석을 완료해주세요.")
+        return
+    
+    # Narrative 생성 옵션
+    st.markdown("#### 📊 Narrative 생성 옵션")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**🌐 웹페이지 생성**")
+        st.write("Card 형식의 웹페이지로 Narrative를 생성합니다.")
+        
+        if st.button("웹페이지 생성", type="primary", key="create_narrative_webpage"):
+            try:
+                from narrative_generator import generate_narrative_webpage
+                
+                # 분석 결과 준비
+                analysis_results = []
+                for i, entry in enumerate(st.session_state.cot_history):
+                    analysis_results.append({
+                        'step': entry.get('step', f'단계 {i+1}'),
+                        'result': entry.get('result', '')
+                    })
+                
+                # 프로젝트 정보 준비
+                project_info = {
+                    'project_name': user_inputs.get('project_name', '프로젝트'),
+                    'owner': user_inputs.get('owner', ''),
+                    'site_location': user_inputs.get('site_location', ''),
+                    'site_area': user_inputs.get('site_area', ''),
+                    'building_type': user_inputs.get('building_type', ''),
+                    'project_goal': user_inputs.get('project_goal', '')
+                }
+                
+                # 웹페이지 생성
+                html_content = generate_narrative_webpage(analysis_results, project_info)
+                
+                # 웹페이지 다운로드
+                st.download_button(
+                    label="📄 웹페이지 다운로드 (HTML)",
+                    data=html_content,
+                    file_name=f"{user_inputs.get('project_name', '분석보고서')}_Narrative.html",
+                    mime="text/html"
+                )
+                
+                st.success("✅ 웹페이지가 생성되었습니다!")
+                
+            except Exception as e:
+                st.error(f"웹페이지 생성 중 오류가 발생했습니다: {str(e)}")
+    
+    with col2:
+        st.markdown("**📄 문서 생성**")
+        st.write("PDF, Word, TXT 형식으로 Narrative를 생성합니다.")
+        
+        if st.button("문서 생성", type="primary", key="create_narrative_documents"):
+            try:
+                # 분석 결과 준비
+                analysis_results = []
+                for i, entry in enumerate(st.session_state.cot_history):
+                    analysis_results.append({
+                        'step': entry.get('step', f'단계 {i+1}')
+                    })
+                
+                # 프로젝트 정보
+                project_info = {
+                    'name': user_inputs.get('project_name', '프로젝트'),
+                    'owner': user_inputs.get('owner', ''),
+                    'site_location': user_inputs.get('site_location', ''),
+                    'site_area': user_inputs.get('site_area', ''),
+                    'building_type': user_inputs.get('building_type', ''),
+                    'project_goal': user_inputs.get('project_goal', '')
+                }
+                
+                # 문서 생성
+                generate_narrative_reports(analysis_results, project_info, user_inputs)
+                
+                st.success("✅ 문서가 생성되었습니다!")
+                
+            except Exception as e:
+                st.error(f"문서 생성 중 오류가 발생했습니다: {str(e)}")
+    
+    # 생성된 Narrative 미리보기
+    if st.session_state.get('cot_history'):
+        st.markdown("#### 📋 분석 결과 미리보기")
+        
+        with st.expander("분석 결과 보기", expanded=False):
+            for i, entry in enumerate(st.session_state.cot_history):
+                st.markdown(f"**{i+1}. {entry.get('step', f'단계 {i+1}')}**")
+                st.write(entry.get('result', ''))
+                st.divider()
+
+def render_narrative_generator_ui():
+    """Narrative Generator 전용 UI"""
+    
+    st.markdown("### 📋 STEP 1: 기본 정보 입력")
+    
+    # 프로젝트 기본 정보 (이미 입력된 정보 사용)
+    user_inputs = st.session_state.get('user_inputs', {})
+    pdf_summary = st.session_state.get('pdf_summary', "")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**프로젝트 기본 정보**")
+        st.write(f"- 프로젝트명: {user_inputs.get('project_name', 'N/A')}")
+        st.write(f"- 건물 용도: {user_inputs.get('building_type', 'N/A')}")
+        st.write(f"- 규모: {user_inputs.get('site_area', 'N/A')}")
+        st.write(f"- 발주처: {user_inputs.get('owner', 'N/A')}")
+    
+    with col2:
+        st.markdown("**대지 정보**")
+        st.write(f"- 위치: {user_inputs.get('site_location', 'N/A')}")
+        st.write(f"- 대지 면적: {user_inputs.get('site_area', 'N/A')}")
+        st.write(f"- 프로젝트 목표: {user_inputs.get('project_goal', 'N/A')}")
+    
+    st.markdown("### 🎯 STEP 2: Narrative 방향성 선택")
+    
+    # 감성/논리 비율 선택
+    st.markdown("**2-1. 감성 ↔ 논리 비율 선택**")
+    emotion_logic_ratio = st.selectbox(
+        "감성/논리 비율을 선택하세요:",
+        options=["A", "B", "C", "D"],
+        format_func=lambda x: {
+            "A": "감성 중심형 (감성 90% / 논리 10%) - 감정적 울림, 서정적 표현, 상징성 중심 스토리텔링",
+            "B": "균형형 (감성 60% / 논리 40%) - 사용자 경험 중심 + 분석 기반 논리 서술의 조화",
+            "C": "전략 중심형 (감성 30% / 논리 70%) - 기능적 해법 + 분석 데이터 기반 논리 중심",
+            "D": "데이터 기반형 (감성 10% / 논리 90%) - 통계·규범·정책 중심 논리적 설득"
+        }[x]
+    )
+    
+    # 서술 스타일 선택
+    st.markdown("**2-2. 서술 스타일/톤 선택**")
+    narrative_style = st.selectbox(
+        "서술 스타일을 선택하세요:",
+        options=["A", "B", "C", "D", "E"],
+        format_func=lambda x: {
+            "A": "공공적/진정성형 - 지역사회 기여, 지속가능성, 공동체 가치 강조",
+            "B": "비즈니스 중심형 - 경제성, 차별화 전략, 고객 경험 중심 강조",
+            "C": "미래지향/비전형 - 변화 주도, 혁신, 미래 라이프스타일 제안",
+            "D": "문화/상징성형 - 장소성, 역사 해석, 상징적 메시지 중심",
+            "E": "사용자 감성형 - 일상 경험과 공간의 만남, 감각 중심"
+        }[x]
+    )
+    
+    # 키 메시지 중심 방향 선택
+    st.markdown("**2-3. 키 메시지 중심 방향 선택**")
+    key_message_direction = st.selectbox(
+        "핵심 메시지 방향을 선택하세요:",
+        options=["A", "B", "C", "D", "E"],
+        format_func=lambda x: {
+            "A": "Vision 중심형 - 미래를 제시하는 선언적 서술",
+            "B": "Problem-Solution형 - 설계 전략 중심 스토리",
+            "C": "User Journey형 - 사용자 감정·동선 중심 구성",
+            "D": "Context-Driven형 - Site 중심 서술",
+            "E": "Symbolic Message형 - 감정적 울림 강조"
+        }[x]
+    )
+    
+    # 건축적 가치 우선순위 선택
+    st.markdown("**2-4. 건축적 가치 우선순위 선택**")
+    architectural_value_priority = st.selectbox(
+        "건축적 가치 우선순위를 선택하세요:",
+        options=["A", "B", "C", "D", "E", "F"],
+        format_func=lambda x: {
+            "A": "장소성 우선 - Site-specific한 고유성 추구",
+            "B": "기능성 우선 - 사용자 니즈와 효율성 중심",
+            "C": "미학성 우선 - 아름다움과 감동 추구",
+            "D": "지속성 우선 - 환경과 미래 세대 고려",
+            "E": "사회성 우선 - 공동체와 소통 중심",
+            "F": "혁신성 우선 - 새로운 가능성 탐구"
+        }[x]
+    )
+    
+    # 내러티브 전개 방식 선택
+    st.markdown("**2-5. 건축적 내러티브 전개 방식 선택**")
+    narrative_development = st.selectbox(
+        "내러티브 전개 방식을 선택하세요:",
+        options=["A", "B", "C", "D", "E", "F"],
+        format_func=lambda x: {
+            "A": "형태 생성 과정형 - 대지→매스→공간→디테일 순차 전개",
+            "B": "공간 경험 여정형 - 진입→이동→머무름→떠남의 시퀀스",
+            "C": "기능 조직 논리형 - 기능분석→배치전략→공간구성",
+            "D": "구조 시스템형 - 구조체→공간→형태의 통합적 설명",
+            "E": "환경 대응 전략형 - 미기후→배치→형태→재료 연계",
+            "F": "문화적 해석형 - 역사적 맥락→현대적 번역→공간화"
+        }[x]
+    )
+    
+    # 강조할 설계 요소 선택
+    st.markdown("**2-6. 강조할 설계 요소 선택 (복수 선택 가능)**")
+    design_elements = st.multiselect(
+        "강조할 설계 요소를 선택하세요:",
+        options=["mass_form", "space_composition", "sustainability", "technology_innovation", 
+                "economy", "safety", "culture_history", "user_experience"],
+        default=["mass_form", "space_composition"],
+        format_func=lambda x: {
+            "mass_form": "매스/형태 - 조형적 아름다움, 상징성으로 시각적 임팩트",
+            "space_composition": "공간 구성 - 동선, 기능 배치의 합리성으로 사용성 어필",
+            "sustainability": "친환경/지속가능 - 에너지 효율, 친환경 기술로 사회적 가치",
+            "technology_innovation": "기술/혁신 - 신기술 적용, 스마트 시스템으로 선진성 강조",
+            "economy": "경제성 - 건설비, 운영비 절감으로 실용성 어필",
+            "safety": "안전성 - 구조적 안정, 방재 계획으로 신뢰성 구축",
+            "culture_history": "문화/역사 - 지역성, 전통의 현대적 해석으로 정체성 강화",
+            "user_experience": "사용자 경험 - 편의성, 접근성, 쾌적성으로 만족도 제고"
+        }[x]
+    )
+    
+    # Narrative 생성 버튼
+    st.markdown("### 🎭 STEP 3: Narrative 자동 생성")
+    
+    if st.button("🎭 Narrative 생성하기"):
+        # Narrative 생성 로직
+        generate_narrative(
+            emotion_logic_ratio=emotion_logic_ratio,
+            narrative_style=narrative_style,
+            key_message_direction=key_message_direction,
+            architectural_value_priority=architectural_value_priority,
+            narrative_development=narrative_development,
+            design_elements=design_elements
+        )
+
+def generate_narrative(**kwargs):
+    """Narrative 생성 함수"""
+    st.markdown("### 🎭 Narrative 생성 중...")
+    
+    with st.spinner("맞춤형 Narrative를 생성하고 있습니다..."):
+        # 여기에 실제 Narrative 생성 로직 구현
+        # 현재는 예시 결과를 보여줌
+        
+        narrative_parts = [
+            "**Part 1. 📋 프로젝트 기본 정보**",
+            "프로젝트명: [프로젝트명]",
+            "건물 용도: [건물 용도]",
+            "규모: [규모]",
+            "발주처: [발주처]",
+            "",
+            "**Part 2.  Core Story: 완벽한 교집합의 발견**",
+            "[선택된 방향성에 따른 핵심 스토리]",
+            "",
+            "**Part 3. 📍 땅이 주는 답**",
+            "[Context-Driven 방식으로 적용된 대지 분석]",
+            "",
+            "**Part 4. 🏢 [발주처명]이 원하는 미래**",
+            "[Vision 중심으로 구성된 미래 제시]",
+            "",
+            "**Part 5. 💡 [컨셉명] 컨셉의 탄생**",
+            "[키워드 기반으로 전개된 컨셉 설명]",
+            "",
+            "**Part 6. 🏛️ 교집합이 만든 건축적 해답**",
+            "[선택된 전개 방식으로 적용된 설계 해답]",
+            "",
+            "**Part 7. 🎯 Winning Narrative 구성**",
+            "[선택된 톤과 스타일로 적용된 승리 스토리]",
+            "",
+            "**Part 8. 🎯 결론: 완벽한 선택의 이유**",
+            "[최종 메시지로 정리된 선택 근거]"
+        ]
+        
+        narrative_text = "\n".join(narrative_parts)
+        
+        # 결과를 탭으로 표시
+        st.session_state.narrative_result = {
+            'tab_names': [
+                "Part 1. 프로젝트 기본 정보",
+                "Part 2. Core Story",
+                "Part 3. 땅이 주는 답",
+                "Part 4. 발주처가 원하는 미래",
+                "Part 5. 컨셉의 탄생",
+                "Part 6. 건축적 해답",
+                "Part 7. Winning Narrative",
+                "Part 8. 결론"
+            ],
+            'tab_contents': [
+                "프로젝트 기본 정보 내용...",
+                "Core Story 내용...",
+                "땅이 주는 답 내용...",
+                "발주처가 원하는 미래 내용...",
+                "컨셉의 탄생 내용...",
+                "건축적 해답 내용...",
+                "Winning Narrative 내용...",
+                "결론 내용..."
+            ]
+        }
+        
+        st.success("🎭 Narrative 생성이 완료되었습니다!")
+        
+        # 탭으로 결과 표시
+        if st.session_state.get('narrative_result'):
+            result = st.session_state.narrative_result
+            tab_names = result['tab_names']
+            tab_contents = result['tab_contents']
+            
+            narrative_tabs = st.tabs(tab_names)
+            
+            for i, (tab, content) in enumerate(zip(narrative_tabs, tab_contents)):
+                with tab:
+                    st.markdown(content)
 
 def main():
     """메인 UI - 탭 기반 인터페이스"""
