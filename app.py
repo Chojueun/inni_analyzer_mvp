@@ -147,38 +147,97 @@ if uploaded_pdf:
 else:
     st.sidebar.warning("⚠️ PDF를 업로드해주세요")
 
-# ─── 2. 블럭 로드 & 단계 선택 ───────────────────────────
+# ─── 2. 새로운 분석 시스템 ───────────────────────────
+from analysis_system import AnalysisSystem, PurposeType, ObjectiveType
+from workflow_ui import (
+    init_analysis_system, render_purpose_selection, 
+    render_objective_selection, render_workflow_suggestion,
+    render_workflow_steps, render_optional_steps_addition,
+    render_step_reordering, render_workflow_confirmation
+)
+
+# 분석 시스템 초기화
+init_analysis_system()
+
 blocks = load_prompt_blocks()
 extra_blocks = blocks["extra"]
 blocks_by_id = {b["id"]: b for b in extra_blocks}
 
-st.sidebar.markdown("🔲 **분석에 포함할 단계 선택**")
-selected_ids = []
-for blk in extra_blocks:
-    if st.sidebar.checkbox(blk["title"], key=f"sel_{blk['id']}"):
-        selected_ids.append(blk["id"])
+# 탭으로 기존 방식과 새로운 방식 선택
+tab1, tab2 = st.tabs(["🏗️ 새로운 분석 시스템", "📋 기존 분석 방식"])
 
-# ─── 3. 선택된 블럭 순서 조정 ────────────────────────────
-if selected_ids:
-    selected_blocks = [blocks_by_id[sid] for sid in selected_ids]
-    titles = [blk["title"] for blk in selected_blocks]
-    sort_key = "block_sorter_" + "_".join(selected_ids)
-    ordered_titles = sort_items(titles, key=sort_key)
-    ordered_blocks = [next(blk for blk in selected_blocks if blk["title"] == t)
-                      for t in ordered_titles]
+with tab1:
+    st.markdown("### 🏗️ ArchInsight 분석 시스템")
+    st.write("프로젝트 용도와 목적에 따른 맞춤형 분석 워크플로우를 구성하세요.")
+    
+    # 1. 용도 선택
+    purpose = render_purpose_selection()
+    
+    if purpose:
+        # 2. 목적 선택
+        objectives = render_objective_selection(purpose)
+        
+        if objectives:
+            # 3. 워크플로우 제안
+            workflow = render_workflow_suggestion(purpose, objectives)
+            
+            if workflow:
+                # 4. 번외 단계 추가
+                render_optional_steps_addition()
+                
+                # 5. 순서 변경
+                render_step_reordering()
+                
+                # 6. 분석 실행
+                render_workflow_confirmation()
+                
+                # 워크플로우를 기존 시스템과 연동
+                if st.session_state.workflow_steps:
+                    st.session_state.ordered_blocks = []
+                    for step in st.session_state.workflow_steps:
+                        # 기존 블록과 매핑
+                        block_id = step.id
+                        if block_id in blocks_by_id:
+                            st.session_state.ordered_blocks.append(blocks_by_id[block_id])
 
-    # 화면에 박스로 표시
-    cols = st.columns(len(ordered_blocks))
-    for col, blk in zip(cols, ordered_blocks):
-        col.markdown(
-            f"<div style='background:#e63946; color:white; "
-            f"padding:8px; border-radius:4px; text-align:center;'>"
-            f"{blk['title']}</div>",
-            unsafe_allow_html=True,
-        )
-    st.markdown("---")
-else:
-    ordered_blocks = []
+with tab2:
+    st.markdown("### 📋 기존 분석 방식")
+    
+    # 기존 블럭 로드 & 단계 선택
+    blocks = load_prompt_blocks()
+    extra_blocks = blocks["extra"]
+    blocks_by_id = {b["id"]: b for b in extra_blocks}
+
+    st.markdown("🔲 **분석에 포함할 단계 선택**")
+    selected_ids = []
+    for blk in extra_blocks:
+        if st.checkbox(blk["title"], key=f"sel_{blk['id']}"):
+            selected_ids.append(blk["id"])
+
+    # 선택된 블럭 순서 조정
+    if selected_ids:
+        selected_blocks = [blocks_by_id[sid] for sid in selected_ids]
+        titles = [blk["title"] for blk in selected_blocks]
+        sort_key = "block_sorter_" + "_".join(selected_ids)
+        ordered_titles = sort_items(titles, key=sort_key)
+        ordered_blocks = [next(blk for blk in selected_blocks if blk["title"] == t)
+                          for t in ordered_titles]
+
+        # 화면에 박스로 표시
+        cols = st.columns(len(ordered_blocks))
+        for col, blk in zip(cols, ordered_blocks):
+            col.markdown(
+                f"<div style='background:#e63946; color:white; "
+                f"padding:8px; border-radius:4px; text-align:center;'>"
+                f"{blk['title']}</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("---")
+    else:
+        ordered_blocks = []
+    
+    # 기존 방식의 ordered_blocks를 session_state에 저장
+    st.session_state.ordered_blocks = ordered_blocks if 'ordered_blocks' not in st.session_state else st.session_state.ordered_blocks
 
 # ─── 4. 누적된 이전 분석 결과 ───────────────────────────
 if st.session_state.cot_history:
@@ -217,6 +276,9 @@ elif cmd.strip() == "분석 진행" or cmd.strip().endswith("단계 진행"):
     if not pdf_summary:
         st.error("❌ PDF 처리가 완료되지 않았습니다. PDF를 다시 업로드해주세요.")
         st.stop()
+    
+    # 새로운 분석 시스템의 워크플로우 사용
+    ordered_blocks = st.session_state.get('ordered_blocks', [])
     
     # 실행할 단계 번호 결정
     if cmd.strip() == "분석 진행":
