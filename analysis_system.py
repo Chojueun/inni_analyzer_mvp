@@ -25,6 +25,8 @@ class PurposeType(Enum):
     MEDICAL = "의료"
     INDUSTRIAL = "산업"
     MIXED_USE = "복합용도"
+    SPORTS = "체육/스포츠"
+    CONTRACT_BIDDING = "계약·입찰"
     OTHER = "기타"
 
 class ObjectiveType(Enum):
@@ -37,6 +39,8 @@ class ObjectiveType(Enum):
     BRANDING = "브랜딩"
     LEGAL_REVIEW = "법적검토"
     SPACE_PLANNING = "공간계획"
+    CONCEPT_RESEARCH = "컨셉리서치"
+    RISK_ANALYSIS = "리스크분석"
     OTHER = "기타"
 
 @dataclass
@@ -85,44 +89,51 @@ class AnalysisSystem:
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.SPACE_PLANNING
             ],
             PurposeType.RESIDENTIAL: [
                 ObjectiveType.MARKET_ANALYSIS,
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.COST_ANALYSIS
+                ObjectiveType.COST_ANALYSIS,
+                ObjectiveType.OPERATION_STRATEGY
             ],
             PurposeType.COMMERCIAL: [
                 ObjectiveType.MARKET_ANALYSIS,
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.BRANDING,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.SPACE_PLANNING
             ],
             PurposeType.CULTURAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.BRANDING,
-                ObjectiveType.SPACE_PLANNING
+                ObjectiveType.SPACE_PLANNING,
+                ObjectiveType.CONCEPT_RESEARCH
             ],
             PurposeType.EDUCATIONAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.LEGAL_REVIEW
             ],
             PurposeType.MEDICAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.LEGAL_REVIEW,
-                ObjectiveType.COST_ANALYSIS
+                ObjectiveType.COST_ANALYSIS,
+                ObjectiveType.OPERATION_STRATEGY
             ],
             PurposeType.INDUSTRIAL: [
                 ObjectiveType.DESIGN_GUIDELINE,
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.LEGAL_REVIEW,
-                ObjectiveType.COST_ANALYSIS
+                ObjectiveType.COST_ANALYSIS,
+                ObjectiveType.OPERATION_STRATEGY
             ],
             PurposeType.MIXED_USE: [
                 ObjectiveType.MARKET_ANALYSIS,
@@ -130,12 +141,27 @@ class AnalysisSystem:
                 ObjectiveType.MASS_STRATEGY,
                 ObjectiveType.SPACE_PLANNING,
                 ObjectiveType.COST_ANALYSIS,
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.RISK_ANALYSIS
+            ],
+            PurposeType.SPORTS: [
+                ObjectiveType.MARKET_ANALYSIS,
+                ObjectiveType.DESIGN_GUIDELINE,
+                ObjectiveType.MASS_STRATEGY,
+                ObjectiveType.SPACE_PLANNING,
+                ObjectiveType.OPERATION_STRATEGY,
+                ObjectiveType.COST_ANALYSIS
+            ],
+            PurposeType.CONTRACT_BIDDING: [
+                ObjectiveType.LEGAL_REVIEW,
+                ObjectiveType.RISK_ANALYSIS,
+                ObjectiveType.COST_ANALYSIS,
                 ObjectiveType.OPERATION_STRATEGY
             ]
         }
     
     def _load_required_steps(self) -> List[AnalysisStep]:
-        """필수 단계 로드"""
+        """필수 단계 로드 (프롬프트 기반)"""
         return [
             AnalysisStep(
                 id="requirement_analysis",
@@ -164,7 +190,7 @@ class AnalysisSystem:
         ]
     
     def _load_recommended_steps(self) -> Dict[ObjectiveType, List[AnalysisStep]]:
-        """목적별 권장 단계 로드"""
+        """목적별 권장 단계 로드 (프롬프트 기반)"""
         return {
             ObjectiveType.MARKET_ANALYSIS: [
                 AnalysisStep(
@@ -285,11 +311,31 @@ class AnalysisSystem:
                     order=5,
                     category="공간계획"
                 )
+            ],
+            ObjectiveType.CONCEPT_RESEARCH: [
+                AnalysisStep(
+                    id="concept_development",
+                    title="설계 컨셉 도출 및 평가",
+                    description="키워드/요구/KPI를 조합해 설계 컨셉을 도출하고 평가 기준까지 체계화",
+                    is_recommended=True,
+                    order=4,
+                    category="컨셉리서치"
+                )
+            ],
+            ObjectiveType.RISK_ANALYSIS: [
+                AnalysisStep(
+                    id="risk_analysis",
+                    title="리스크 분석 및 대응 전략",
+                    description="프로젝트의 다양한 리스크 요소를 분석하고 대응 전략을 수립",
+                    is_recommended=True,
+                    order=4,
+                    category="리스크분석"
+                )
             ]
         }
     
     def _load_optional_steps(self) -> List[AnalysisStep]:
-        """번외 단계 로드"""
+        """번외 단계 로드 (프롬프트 기반)"""
         return [
             AnalysisStep(
                 id="concept_development",
