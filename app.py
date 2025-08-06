@@ -25,6 +25,7 @@ from agent_executor import (
 from dsl_to_prompt import *  # 모든 함수를 한 번에 import
 from report_generator import generate_pdf_report, generate_word_report
 from PIL import Image
+from webpage_generator import create_webpage_download_button
 
 # dA-logo.png가 프로젝트 폴더에 있어야 함!
 logo = Image.open("dA-logo.png")
@@ -172,10 +173,16 @@ if not st.session_state.get('show_project_info', True):
     blocks = load_prompt_blocks()
     extra_blocks = blocks["extra"]
     
-    # 현재 선택된 단계들
+    # 현재 선택된 단계들 (제거된 단계 제외)
     current_step_ids = set()
     if st.session_state.get('workflow_steps'):
-        current_step_ids = {step.id for step in st.session_state.workflow_steps}
+        for step in st.session_state.workflow_steps:
+            if step.id not in st.session_state.get('removed_steps', set()):
+                current_step_ids.add(step.id)
+    
+    # 추가된 단계들도 포함
+    added_step_ids = st.session_state.get('added_steps', set())
+    current_step_ids.update(added_step_ids)
     
     # 추천 단계들 (제외)
     recommended_step_ids = set()
@@ -225,97 +232,11 @@ if not st.session_state.get('show_project_info', True):
     if st.session_state.sidebar_step_added:
         st.session_state.sidebar_step_added = False
 
-# ─── 2. 새로운 분석 시스템 ───────────────────────────
-from analysis_system import AnalysisSystem, PurposeType, ObjectiveType
-from workflow_ui import (
-    init_analysis_system, render_purpose_selection, 
-    render_objective_selection, render_workflow_suggestion,
-    render_workflow_steps, render_optional_steps_addition,
-    render_step_reordering, render_workflow_confirmation
-)
+# ─── 2. 새로운 탭 기반 인터페이스 ───────────────────────────
+from workflow_ui import render_tabbed_interface
 
-# 분석 시스템 초기화
-init_analysis_system()
-
-blocks = load_prompt_blocks()
-extra_blocks = blocks["extra"]
-blocks_by_id = {b["id"]: b for b in extra_blocks}
-
-# 탭으로 기존 방식과 새로운 방식 선택
-tab1, tab2 = st.tabs(["🏗️ 새로운 분석 시스템", "📋 기존 분석 방식"])
-
-with tab1:
-    st.markdown("### 🏗️ ArchInsight 분석 시스템")
-    st.write("프로젝트 용도와 목적에 따른 맞춤형 분석 워크플로우를 구성하세요.")
-    
-    # 1. 용도 선택
-    purpose = render_purpose_selection()
-    
-    if purpose:
-        # 2. 목적 선택
-        objectives = render_objective_selection(purpose)
-        
-        if objectives:
-            # 3. 워크플로우 제안
-            workflow = render_workflow_suggestion(purpose, objectives)
-            
-            if workflow:
-                # 4. 번외 단계 추가
-                render_optional_steps_addition()
-                
-                # 5. 순서 변경
-                render_step_reordering()
-                
-                # 6. 분석 실행
-                render_workflow_confirmation()
-                
-                # 워크플로우를 기존 시스템과 연동
-                if st.session_state.workflow_steps:
-                    st.session_state.ordered_blocks = []
-                    for step in st.session_state.workflow_steps:
-                        # 기존 블록과 매핑
-                        block_id = step.id
-                        if block_id in blocks_by_id:
-                            st.session_state.ordered_blocks.append(blocks_by_id[block_id])
-
-with tab2:
-    st.markdown("### 📋 기존 분석 방식")
-    
-    # 기존 블럭 로드 & 단계 선택
-    blocks = load_prompt_blocks()
-    extra_blocks = blocks["extra"]
-    blocks_by_id = {b["id"]: b for b in extra_blocks}
-
-    st.markdown("🔲 **분석에 포함할 단계 선택**")
-    selected_ids = []
-    for blk in extra_blocks:
-        if st.checkbox(blk["title"], key=f"sel_{blk['id']}"):
-            selected_ids.append(blk["id"])
-
-    # 선택된 블럭 순서 조정
-    if selected_ids:
-        selected_blocks = [blocks_by_id[sid] for sid in selected_ids]
-        titles = [blk["title"] for blk in selected_blocks]
-        sort_key = "block_sorter_" + "_".join(selected_ids)
-        ordered_titles = sort_items(titles, key=sort_key)
-        ordered_blocks = [next(blk for blk in selected_blocks if blk["title"] == t)
-                          for t in ordered_titles]
-
-        # 화면에 박스로 표시
-        cols = st.columns(len(ordered_blocks))
-        for col, blk in zip(cols, ordered_blocks):
-            col.markdown(
-                f"<div style='background:#e63946; color:white; "
-                f"padding:8px; border-radius:4px; text-align:center;'>"
-                f"{blk['title']}</div>",
-                unsafe_allow_html=True,
-            )
-        st.markdown("---")
-    else:
-        ordered_blocks = []
-    
-    # 기존 방식의 ordered_blocks를 session_state에 저장
-    st.session_state.ordered_blocks = ordered_blocks if 'ordered_blocks' not in st.session_state else st.session_state.ordered_blocks
+# 탭 기반 인터페이스 렌더링
+render_tabbed_interface()
 
 # ─── 4. 누적된 이전 분석 결과 ───────────────────────────
 if st.session_state.cot_history:
@@ -548,86 +469,112 @@ elif cmd.strip() == "분석 진행" or cmd.strip().endswith("단계 진행"):
     else:
         st.warning("유효한 단계가 아닙니다. 선택된 단계와 순서를 확인해주세요.")
 
-elif cmd.strip() == "보고서 생성":
-    if not st.session_state.cot_history:
-        st.error("❌ 생성된 분석 결과가 없습니다. 먼저 분석을 진행해주세요.")
-    else:
-        st.markdown("### 📄 보고서 생성")
+# ─── 웹페이지 생성 기능 ─────────────────────────────────────────────
+if cmd.strip() == "보고서 생성":
+    # user_inputs 먼저 가져오기
+    user_inputs = get_user_inputs()
+    
+    # 분석 결과 수집
+    analysis_results = []
+    if st.session_state.get('cot_history'):
+        for i, history in enumerate(st.session_state.cot_history):
+            analysis_results.append({
+                'step': history.get('step', f'단계 {i+1}'),
+                'summary': history.get('summary', ''),
+                'insight': history.get('insight', ''),
+                'result': history.get('result', '')
+            })
+    
+    # 프로젝트 정보
+    project_info = {
+        'project_name': user_inputs.get('project_name', '프로젝트'),
+        'owner': user_inputs.get('owner', ''),
+        'site_location': user_inputs.get('site_location', ''),
+        'site_area': user_inputs.get('site_area', ''),
+        'building_type': user_inputs.get('building_type', ''),
+        'project_goal': user_inputs.get('project_goal', '')
+    }
+    
+    # 웹페이지 생성 및 다운로드
+    from webpage_generator import create_webpage_download_button
+    create_webpage_download_button(analysis_results, project_info)
+    
+    # 기존 보고서 생성 로직도 유지
+    if st.session_state.get('cot_history'):
+        st.markdown("### 📋 전체 분석 보고서")
         
-        # 프로젝트 정보
-        project_info = f"""
-# 한국 {user_inputs.get('project_name', '프로젝트')} 분석 보고서
-
-## 한국 프로젝트 기본 정보
-- **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
-- **소유자**: {user_inputs.get('owner', 'N/A')}
-- **위치**: {user_inputs.get('site_location', 'N/A')}
-- **면적**: {user_inputs.get('site_area', 'N/A')}
-- **건물유형**: {user_inputs.get('building_type', 'N/A')}
-- **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
-
----
-"""
+        # 프로젝트 정보 섹션
+        st.markdown("#### 📋 프로젝트 기본 정보")
+        project_info_text = f"""
+        **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
+        **건축주**: {user_inputs.get('owner', 'N/A')}
+        **대지위치**: {user_inputs.get('site_location', 'N/A')}
+        **대지면적**: {user_inputs.get('site_area', 'N/A')}
+        **건물용도**: {user_inputs.get('building_type', 'N/A')}
+        **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
+        """
+        st.markdown(project_info_text)
         
-        # 분석 결과 수집
-        analysis_content = ""
-        for i, entry in enumerate(st.session_state.cot_history, 1):
-            analysis_content += f"""
-## {i}. {entry['step']}
-
-### 📊 요약
-{entry.get('summary', '요약 정보 없음')}
-
-### 🧠 인사이트
-{entry.get('insight', '인사이트 정보 없음')}
-
-### 📋 상세 분석 결과
-{entry['result']}
-
----
-"""
+        # 분석 결과 섹션
+        st.markdown("#### 📊 분석 결과")
+        for i, history in enumerate(st.session_state.cot_history):
+            st.markdown(f"**{i+1}. {history.get('step', f'단계 {i+1}')}**")
+            if history.get('summary'):
+                st.markdown(f"**요약**: {history['summary']}")
+            if history.get('insight'):
+                st.markdown(f"**인사이트**: {history['insight']}")
+            st.markdown(history.get('result', ''))
+            st.markdown("---")
         
-        # 전체 보고서 내용
-        full_report = project_info + analysis_content
+        # 전체 보고서 내용 생성
+        full_report_content = project_info_text + "\n\n" + "\n\n".join([
+            f"## {i+1}. {h.get('step', f'단계 {i+1}')}\n\n{h.get('result', '')}"
+            for i, h in enumerate(st.session_state.cot_history)
+        ])
         
-        # 보고서 미리보기
-        st.markdown("#### 📄 보고서 미리보기")
-        st.markdown(full_report)
+        # 다운로드 버튼들
+        col1, col2, col3 = st.columns(3)
         
-        # PDF 생성 버튼
-        if st.button("💾 PDF 보고서 다운로드", key="download_pdf"):
+        with col1:
+            # 전체 보고서 다운로드 (TXT)
+            st.download_button(
+                label="📄 전체 보고서 다운로드 (TXT)",
+                data=full_report_content,
+                file_name=f"{user_inputs.get('project_name', '분석보고서')}_전체보고서.txt",
+                mime="text/plain"
+            )
+        
+        with col2:
+            # PDF 다운로드 (기존 report_generator 사용)
             try:
-                pdf_bytes = generate_pdf_report(full_report, user_inputs)
+                from report_generator import generate_pdf_report
+                pdf_data = generate_pdf_report(full_report_content, user_inputs)
+                
                 st.download_button(
-                    label="💾 PDF 다운로드",
-                    data=pdf_bytes,
+                    label="📄 PDF 다운로드",
+                    data=pdf_data,
                     file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.pdf",
                     mime="application/pdf"
                 )
-                st.success("✅ PDF 보고서가 생성되었습니다!")
             except Exception as e:
-                st.error(f"❌ PDF 생성 중 오류 발생: {e}")
+                st.error(f"PDF 생성 중 오류가 발생했습니다: {str(e)}")
         
-        # Word 문서 생성 버튼 (조건부)
-        try:
-            from report_generator import DOCX_AVAILABLE
-            if DOCX_AVAILABLE:
-                if st.button("💾 Word 문서 다운로드", key="download_word"):
-                    try:
-                        docx_bytes = generate_word_report(full_report, user_inputs)
-                        st.download_button(
-                            label="💾 Word 다운로드",
-                            data=docx_bytes,
-                            file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                        st.success("✅ Word 문서가 생성되었습니다!")
-                    except Exception as e:
-                        st.error(f"❌ Word 문서 생성 중 오류 발생: {e}")
-            else:
-                st.info("ℹ️ Word 문서 기능을 사용하려면 'pip install python-docx'를 실행해주세요.")
-        except ImportError:
-            st.info("ℹ️ Word 문서 기능을 사용하려면 'pip install python-docx'를 실행해주세요.")
+        with col3:
+            # Word 다운로드 (기존 report_generator 사용)
+            try:
+                from report_generator import generate_word_report
+                word_data = generate_word_report(full_report_content, user_inputs)
+                
+                st.download_button(
+                    label="📄 Word 다운로드",
+                    data=word_data,
+                    file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+            except Exception as e:
+                st.error(f"Word 문서 생성 중 오류가 발생했습니다: {str(e)}")
+    else:
+        st.warning("생성된 분석 결과가 없습니다.")
 
 # PDF 업로드 시 디버깅 정보
 if st.session_state.get('uploaded_pdf'):

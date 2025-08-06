@@ -24,32 +24,16 @@ def init_user_state():
         st.session_state.current_step_index = 0
 
 def get_user_inputs():
-    if "user_inputs" not in st.session_state:
-        st.session_state.user_inputs = {}
-
-    st.session_state.user_inputs["project_name"] = st.sidebar.text_input(
-        "Project Name (예: Woori Bank Dasan Campus)", value=st.session_state.user_inputs.get("project_name", "")
-    )
-    st.session_state.user_inputs["owner"] = st.sidebar.text_input(
-        "Owner (예: Woori Bank)", value=st.session_state.user_inputs.get("owner", "")
-    )
-    st.session_state.user_inputs["site_location"] = st.sidebar.text_input(
-        "Site Location (예: Namyangju-si, Gyeonggi-do)", value=st.session_state.user_inputs.get("site_location", "")
-    )
-    st.session_state.user_inputs["site_area"] = st.sidebar.text_input(
-        "Site Area (예: 7,500㎡)", value=st.session_state.user_inputs.get("site_area", "")
-    )
-    st.session_state.user_inputs["zoning"] = st.sidebar.text_input(
-        "Zoning (예: General Residential Zone)", value=st.session_state.user_inputs.get("zoning", "")
-    )
-    st.session_state.user_inputs["building_type"] = st.sidebar.text_input(
-        "Building Type (예: Training Center)", value=st.session_state.user_inputs.get("building_type", "")
-    )
-    st.session_state.user_inputs["project_goal"] = st.sidebar.text_area(
-        "Project Goal (예: Develop an innovative training campus...)", value=st.session_state.user_inputs.get("project_goal", "")
-    )
-
-    return st.session_state.user_inputs
+    """st.session_state에서 직접 프로젝트 정보를 가져옴"""
+    return {
+        "project_name": st.session_state.get("project_name", ""),
+        "owner": st.session_state.get("owner", ""),
+        "site_location": st.session_state.get("site_location", ""),
+        "site_area": st.session_state.get("site_area", ""),
+        "zoning": st.session_state.get("zoning", ""),
+        "building_type": st.session_state.get("building_type", ""),
+        "project_goal": st.session_state.get("project_goal", "")
+    }
 
 def set_pdf_summary(summary: str):
     st.session_state.pdf_summary = summary
