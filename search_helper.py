@@ -3,7 +3,13 @@ import requests
 import os
 import streamlit as st
 
-SERP_API_KEY = os.environ.get("SERP_API_KEY")
+# Streamlit Secrets에서 API 키 가져오기 (우선순위)
+try:
+    SERP_API_KEY = st.secrets.get("SERP_API_KEY")
+    if not SERP_API_KEY:
+        SERP_API_KEY = os.environ.get("SERP_API_KEY")
+except:
+    SERP_API_KEY = os.environ.get("SERP_API_KEY")
 
 def search_web_serpapi(query):
     """웹 검색 함수 - 오류 처리 및 디버깅 강화"""

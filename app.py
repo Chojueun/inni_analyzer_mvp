@@ -100,8 +100,17 @@ st.markdown("""
 
 with st.sidebar:
     st.markdown("### 🔧 시스템 상태")
-    st.info(f"Claude API: {'✅' if os.environ.get('ANTHROPIC_API_KEY') else '❌'}")
-    st.info(f"SerpAPI: {'✅' if os.environ.get('SERP_API_KEY') else '❌'}")
+    
+    # API 키 상태 확인 (Secrets 우선, 환경 변수 대체)
+    try:
+        anthropic_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get('ANTHROPIC_API_KEY')
+        serp_key = st.secrets.get("SERP_API_KEY") or os.environ.get('SERP_API_KEY')
+    except:
+        anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
+        serp_key = os.environ.get('SERP_API_KEY')
+    
+    st.info(f"Claude API: {'✅' if anthropic_key else '❌'}")
+    st.info(f"SerpAPI: {'✅' if serp_key else '❌'}")
 
 # ─── 초기화 ─────────────────────────────────────────────
 init_user_state()
