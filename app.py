@@ -98,91 +98,10 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ──────────────────────────────
-# 3. API 사용량 카운트 기능 (직접 숫자로)
-if "api_calls" not in st.session_state:
-    st.session_state.api_calls = 0
-
-if "total_cost" not in st.session_state:
-    st.session_state.total_cost = 0.0
-
-if "total_tokens" not in st.session_state:
-    st.session_state.total_tokens = {"input": 0, "output": 0}
-
-# API 사용 호출부에 아래 라인 예시로 추가(각 run_... 함수 실행 때마다 +=1)
-# st.session_state.api_calls += 1
-
 with st.sidebar:
     st.markdown("### 🔧 시스템 상태")
     st.info(f"Claude API: {'✅' if os.environ.get('ANTHROPIC_API_KEY') else '❌'}")
     st.info(f"SerpAPI: {'✅' if os.environ.get('SERP_API_KEY') else '❌'}")
-    
-    st.markdown("### 💰 API 사용량")
-    
-    # 사용량 정보를 더 자세히 표시
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("API 호출 횟수", f"{st.session_state.api_calls}")
-        st.metric("총 비용", f"${st.session_state.total_cost:.4f}")
-    with col2:
-        st.metric("입력 토큰", f"{st.session_state.total_tokens['input']:,}")
-        st.metric("출력 토큰", f"{st.session_state.total_tokens['output']:,}")
-    
-    # 한국어 비용 표시
-    krw_rate = 1300  # USD to KRW 환율 (대략적)
-    krw_cost = st.session_state.total_cost * krw_rate
-    st.info(f"💡 예상 원화 비용: 약 {krw_cost:,.0f}원", icon="💰")
-    
-    # 평균 비용 정보
-    if st.session_state.api_calls > 0:
-        avg_cost = st.session_state.total_cost / st.session_state.api_calls
-        st.caption(f"평균 호출당 비용: ${avg_cost:.4f}")
-    
-    # 실시간 상태 표시
-    if st.session_state.api_calls > 0:
-        st.success(f"🔄 마지막 업데이트: {time.strftime('%H:%M:%S')}")
-    
-    # 사용량 업데이트 알림
-    if "last_usage_update" not in st.session_state:
-        st.session_state.last_usage_update = None
-    
-    if st.session_state.last_usage_update != st.session_state.api_calls:
-        st.session_state.last_usage_update = st.session_state.api_calls
-        st.info("📊 사용량이 업데이트되었습니다!")
-    
-
-    
-    # 사용량 관리 버튼들
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("🔄 초기화", type="secondary"):
-            st.session_state.api_calls = 0
-            st.session_state.total_cost = 0.0
-            st.session_state.total_tokens = {"input": 0, "output": 0}
-            st.success("사용량이 초기화되었습니다!")
-            st.rerun()
-    
-    with col2:
-        if st.button("🔄 새로고침", type="secondary"):
-            st.rerun()
-    
-    with col3:
-        # 사용량 데이터 내보내기
-        usage_data = {
-            "api_calls": st.session_state.api_calls,
-            "total_cost_usd": st.session_state.total_cost,
-            "total_cost_krw": st.session_state.total_cost * 1300,
-            "input_tokens": st.session_state.total_tokens["input"],
-            "output_tokens": st.session_state.total_tokens["output"],
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        st.download_button(
-            label="📊 내보내기",
-            data=str(usage_data),
-            file_name=f"api_usage_{time.strftime('%Y%m%d_%H%M%S')}.txt",
-            mime="text/plain"
-        )
 
 # ─── 초기화 ─────────────────────────────────────────────
 init_user_state()
@@ -190,46 +109,6 @@ init_user_state()
 
 
 # ─── 1. 프로젝트 기본 정보 입력 (탭 위에 배치) ─────────────────────────
-
-# API 사용량 표시 (메인 영역)
-if st.session_state.api_calls > 0:
-    with st.container():
-        st.markdown("### 💰 현재 API 사용량")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("총 호출", f"{st.session_state.api_calls}")
-        with col2:
-            st.metric("총 비용", f"${st.session_state.total_cost:.4f}")
-        with col3:
-            krw_cost = st.session_state.total_cost * 1300
-            st.metric("예상 원화", f"{krw_cost:,.0f}원")
-        
-        # 상세 사용량 정보
-        with st.expander("📊 상세 사용량 정보", expanded=False):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("입력 토큰", f"{st.session_state.total_tokens['input']:,}")
-                st.metric("출력 토큰", f"{st.session_state.total_tokens['output']:,}")
-            with col2:
-                if st.session_state.api_calls > 0:
-                    avg_cost = st.session_state.total_cost / st.session_state.api_calls
-                    st.metric("평균 호출당 비용", f"${avg_cost:.4f}")
-                    avg_tokens = (st.session_state.total_tokens['input'] + st.session_state.total_tokens['output']) / st.session_state.api_calls
-                    st.metric("평균 토큰", f"{avg_tokens:,.0f}")
-        
-        # 사용량 상태 표시
-        if st.session_state.total_cost > 0:
-            progress_ratio = min(st.session_state.total_cost / 10.0, 1.0)  # $10 기준
-            st.progress(progress_ratio, text=f"사용량 진행률: {progress_ratio*100:.1f}%")
-        
-        # 테스트 버튼 (개발용)
-        if st.button("🧪 테스트 API 호출", type="secondary"):
-            st.session_state.api_calls += 1
-            st.session_state.total_cost += 0.01
-            st.session_state.total_tokens["input"] += 100
-            st.session_state.total_tokens["output"] += 50
-            st.success("테스트 API 호출이 추가되었습니다!")
-            st.rerun()
 
 st.markdown("### 프로젝트 기본 정보")
 
@@ -257,7 +136,7 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         with open(temp_path, "wb") as f:
             f.write(pdf_bytes)
         
-        from utils_pdf_vector import save_pdf_chunks_to_chroma
+        from utils_pdf_vector_simple import save_pdf_chunks_to_chroma
         save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA")
         st.success("✅ PDF 벡터DB 저장 완료!")
         

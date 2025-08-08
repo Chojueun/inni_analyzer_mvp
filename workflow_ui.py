@@ -1289,6 +1289,8 @@ def render_report_generation_tab():
             st.markdown(f"요약: {history.get('summary', '')}")
             st.markdown("---")
 
+
+
 def main():
     """메인 함수"""
     render_tabbed_interface()

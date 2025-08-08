@@ -1,5 +1,13 @@
 # utils_pdf_vector.py
 
+# SQLite 버전 문제 해결을 위한 코드
+import sys
+try:
+    import pysqlite3
+    sys.modules['sqlite3'] = pysqlite3
+except ImportError:
+    pass
+
 import chromadb
 import fitz  # PyMuPDF
 from sentence_transformers import SentenceTransformer
