@@ -25,6 +25,7 @@ from dsl_to_prompt import *  # 모든 함수를 한 번에 import
 from report_generator import generate_pdf_report, generate_word_report
 from PIL import Image
 from webpage_generator import create_webpage_download_button
+from auth_system import init_auth, login_page, admin_panel, logout
 
 # dA-logo.png가 프로젝트 폴더에 있어야 함!
 logo = Image.open("dA-logo.png")
@@ -97,6 +98,24 @@ st.markdown("""
         <div class="banner-subtitle">AI-driven Project Insight & Workflow</div>
     </div>
 """, unsafe_allow_html=True)
+
+# 인증 시스템 초기화
+init_auth()
+
+# 로그인 상태 확인
+if not st.session_state.authenticated:
+    login_page()
+    st.stop()
+
+# 로그인된 사용자 정보 표시
+st.sidebar.markdown(f"### 👤 {st.session_state.current_user}")
+if st.sidebar.button("로그아웃"):
+    logout()
+
+# 관리자만 접근 가능한 패널
+if st.session_state.current_user == "admin":
+    with st.sidebar.expander("관리자 패널"):
+        admin_panel()
 
 with st.sidebar:
     st.markdown("### 🔧 시스템 상태")
