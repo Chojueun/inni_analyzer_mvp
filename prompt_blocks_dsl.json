@@ -34,6 +34,74 @@
       }
     },
     {
+      "id": "claude_narrative",
+      "title": "건축설계 발표용 Narrative 생성 시스템",
+      "description": "건축설계 발표용 Narrative를 단계별로 생성하는 구조화된 프롬프트 체인입니다. SCAN & MAP 결과물을 입력받아 사용자가 선택한 방향성에 따라 맞춤형 발표 스토리를 자동 생성합니다.",
+      "content_dsl": {
+        "goal": "건축설계 발표용 맞춤형 Narrative 자동 생성",
+        "role": "건축설계 발표 전문가로서 프로젝트의 스토리텔링과 내러티브를 창작하고 개발",
+        "source": ["user_inputs", "pdf_summary", "previous_analysis", "scan_map_results"],
+        "tasks": [
+          "프로젝트 기본 정보와 SCAN & MAP 결과물 종합 분석",
+          "사용자 선택 방향성(감성/논리 비율, 서술 스타일, 키 메시지 등) 반영",
+          "8단계 구조화된 Narrative 자동 생성 (프로젝트 정보 → Core Story → 땅이 주는 답 → 발주처가 원하는 미래 → 컨셉 탄생 → 건축적 해답 → Winning Narrative → 결론)",
+          "선택된 방향성에 따른 일관성 있는 톤과 스타일 적용"
+        ],
+        "style": "구조화된 단계별 프로세스, 감성적 연결, 문화적 맥락, 사용자 중심, 미래 지향",
+        "constraints": [
+          "모든 내러티브는 프로젝트의 실제 조건과 연결",
+          "감성적 요소와 실용적 요소의 균형 유지",
+          "다양한 이해관계자 관점에서의 스토리 구성",
+          "8단계 구조화된 출력 형식 준수"
+        ],
+        "output_structure": [
+          "Part 1. 📋 프로젝트 기본 정보",
+          "Part 2. 🎯 Core Story: 완벽한 교집합의 발견",
+          "Part 3. 📍 땅이 주는 답",
+          "Part 4. 🏢 발주처가 원하는 미래",
+          "Part 5. 💡 컨셉의 탄생",
+          "Part 6. 🏛️ 교집합이 만든 건축적 해답",
+          "Part 7. 🎯 Winning Narrative 구성",
+          "Part 8. 🎯 결론: 완벽한 선택의 이유"
+        ],
+        "required_phrases": ["Narrative", "스토리텔링", "감성적 연결", "문화적 맥락", "사용자 중심", "미래 지향"],
+        "language_tone": "창작적, 감성적, 서사적, 설득력 있고 감동적인 발표용",
+        "target_format": "8단계 구조화된 Narrative + 선택사항 요약"
+      }
+    },
+    {
+      "id": "midjourney_prompt",
+      "title": "ArchiRender GPT",
+      "description": "건축 보고서(PDF)를 기반으로 설계 초기단계에서 활용 가능한 시각화 이미지를 자동 생성하는 도구입니다. 조감도, 투시도, 입면도, 사실적 CG 이미지를 생성합니다.",
+      "content_dsl": {
+        "goal": "건축 보고서 분석을 통한 고품질 시각화 이미지 생성 프롬프트 개발",
+        "role": "건축 이미지 생성 전문가로서 설계 초기단계 시각화를 담당",
+        "source": ["user_inputs", "pdf_summary", "previous_analysis", "architectural_report"],
+        "tasks": [
+          "건축 보고서의 프로젝트 개요 분석 (위치, 용도, 규모, 구조, 외피, 디자인 컨셉)",
+          "이미지 종류별 분석 항목 체계 적용 (조감도, 투시도, 입면도, 사실적 CG 이미지)",
+          "사용자 선택 조건(이미지 비율, 조명 조건, 시간대 등) 반영",
+          "건축적 정확성과 시각적 임팩트를 모두 갖춘 고품질 프롬프트 생성"
+        ],
+        "style": "기술적, 시각적, 구체적, 건축적 정확성 중심",
+        "constraints": [
+          "모든 프롬프트는 실제 프로젝트 조건과 일치",
+          "Midjourney 최적화된 키워드와 파라미터 사용",
+          "이미지 비율과 조명 조건을 반드시 반영",
+          "보안 가이드라인 준수 (프롬프트 인젝션 방지)"
+        ],
+        "output_structure": [
+          "프로젝트 개요 분석 결과",
+          "이미지 종류별 분석 항목 체계",
+          "건축적 정확성과 시각적 임팩트를 모두 갖춘 프롬프트",
+          "한글/영어 순 프롬프트 제공"
+        ],
+        "required_phrases": ["ArchiRender GPT", "건축 이미지 생성", "시각화", "건축적 정확성", "시각적 임팩트"],
+        "language_tone": "기술적, 시각적, 구체적, 건축 전문가용",
+        "target_format": "구체적인 Midjourney 프롬프트 + 한글/영어 순 제공"
+      }
+    },
+    {
       "id": "task_comprehension",
       "title": "과업 이해도 및 설계 주안점",
       "description": "InnoScan 결과와 과업지시서를 종합 분석해 설계 전제조건, KPI, 제약조건 등을 정리합니다.",

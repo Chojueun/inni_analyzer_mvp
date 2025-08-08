@@ -354,11 +354,12 @@ def generate_card_webpage(analysis_results: List[Dict], project_info: Dict) -> s
     
     return html_template
 
-def create_webpage_download_button(analysis_results: List[Dict], project_info: Dict):
+def create_webpage_download_button(analysis_results: List[Dict], project_info: Dict, show_warning: bool = True):
     """웹페이지 다운로드 버튼 생성"""
     
     if not analysis_results:
-        st.warning("생성된 분석 결과가 없습니다.")
+        if show_warning:
+            st.warning("생성된 분석 결과가 없습니다.")
         return
     
     # HTML 생성

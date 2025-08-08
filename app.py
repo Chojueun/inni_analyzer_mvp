@@ -11,7 +11,6 @@ from user_state import (
     get_current_step_index
 )
 from utils import extract_summary, extract_insight
-from streamlit_sortables import sort_items
 from summary_generator import summarize_pdf, extract_site_analysis_fields
 from user_state import append_step_history
 from utils_pdf_vector import save_pdf_chunks_to_chroma
@@ -104,6 +103,12 @@ st.markdown("""
 if "api_calls" not in st.session_state:
     st.session_state.api_calls = 0
 
+if "total_cost" not in st.session_state:
+    st.session_state.total_cost = 0.0
+
+if "total_tokens" not in st.session_state:
+    st.session_state.total_tokens = {"input": 0, "output": 0}
+
 # API 사용 호출부에 아래 라인 예시로 추가(각 run_... 함수 실행 때마다 +=1)
 # st.session_state.api_calls += 1
 
@@ -111,13 +116,121 @@ with st.sidebar:
     st.markdown("### 🔧 시스템 상태")
     st.info(f"Claude API: {'✅' if os.environ.get('ANTHROPIC_API_KEY') else '❌'}")
     st.info(f"SerpAPI: {'✅' if os.environ.get('SERP_API_KEY') else '❌'}")
-    st.markdown("### 🔧 API 사용량")
-    st.info(f"API 호출 횟수: {st.session_state.api_calls}")
+    
+    st.markdown("### 💰 API 사용량")
+    
+    # 사용량 정보를 더 자세히 표시
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("API 호출 횟수", f"{st.session_state.api_calls}")
+        st.metric("총 비용", f"${st.session_state.total_cost:.4f}")
+    with col2:
+        st.metric("입력 토큰", f"{st.session_state.total_tokens['input']:,}")
+        st.metric("출력 토큰", f"{st.session_state.total_tokens['output']:,}")
+    
+    # 한국어 비용 표시
+    krw_rate = 1300  # USD to KRW 환율 (대략적)
+    krw_cost = st.session_state.total_cost * krw_rate
+    st.info(f"💡 예상 원화 비용: 약 {krw_cost:,.0f}원", icon="💰")
+    
+    # 평균 비용 정보
+    if st.session_state.api_calls > 0:
+        avg_cost = st.session_state.total_cost / st.session_state.api_calls
+        st.caption(f"평균 호출당 비용: ${avg_cost:.4f}")
+    
+    # 실시간 상태 표시
+    if st.session_state.api_calls > 0:
+        st.success(f"🔄 마지막 업데이트: {time.strftime('%H:%M:%S')}")
+    
+    # 사용량 업데이트 알림
+    if "last_usage_update" not in st.session_state:
+        st.session_state.last_usage_update = None
+    
+    if st.session_state.last_usage_update != st.session_state.api_calls:
+        st.session_state.last_usage_update = st.session_state.api_calls
+        st.info("📊 사용량이 업데이트되었습니다!")
+    
+
+    
+    # 사용량 관리 버튼들
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("🔄 초기화", type="secondary"):
+            st.session_state.api_calls = 0
+            st.session_state.total_cost = 0.0
+            st.session_state.total_tokens = {"input": 0, "output": 0}
+            st.success("사용량이 초기화되었습니다!")
+            st.rerun()
+    
+    with col2:
+        if st.button("🔄 새로고침", type="secondary"):
+            st.rerun()
+    
+    with col3:
+        # 사용량 데이터 내보내기
+        usage_data = {
+            "api_calls": st.session_state.api_calls,
+            "total_cost_usd": st.session_state.total_cost,
+            "total_cost_krw": st.session_state.total_cost * 1300,
+            "input_tokens": st.session_state.total_tokens["input"],
+            "output_tokens": st.session_state.total_tokens["output"],
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        st.download_button(
+            label="📊 내보내기",
+            data=str(usage_data),
+            file_name=f"api_usage_{time.strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain"
+        )
 
 # ─── 초기화 ─────────────────────────────────────────────
 init_user_state()
 
+
+
 # ─── 1. 프로젝트 기본 정보 입력 (탭 위에 배치) ─────────────────────────
+
+# API 사용량 표시 (메인 영역)
+if st.session_state.api_calls > 0:
+    with st.container():
+        st.markdown("### 💰 현재 API 사용량")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("총 호출", f"{st.session_state.api_calls}")
+        with col2:
+            st.metric("총 비용", f"${st.session_state.total_cost:.4f}")
+        with col3:
+            krw_cost = st.session_state.total_cost * 1300
+            st.metric("예상 원화", f"{krw_cost:,.0f}원")
+        
+        # 상세 사용량 정보
+        with st.expander("📊 상세 사용량 정보", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("입력 토큰", f"{st.session_state.total_tokens['input']:,}")
+                st.metric("출력 토큰", f"{st.session_state.total_tokens['output']:,}")
+            with col2:
+                if st.session_state.api_calls > 0:
+                    avg_cost = st.session_state.total_cost / st.session_state.api_calls
+                    st.metric("평균 호출당 비용", f"${avg_cost:.4f}")
+                    avg_tokens = (st.session_state.total_tokens['input'] + st.session_state.total_tokens['output']) / st.session_state.api_calls
+                    st.metric("평균 토큰", f"{avg_tokens:,.0f}")
+        
+        # 사용량 상태 표시
+        if st.session_state.total_cost > 0:
+            progress_ratio = min(st.session_state.total_cost / 10.0, 1.0)  # $10 기준
+            st.progress(progress_ratio, text=f"사용량 진행률: {progress_ratio*100:.1f}%")
+        
+        # 테스트 버튼 (개발용)
+        if st.button("🧪 테스트 API 호출", type="secondary"):
+            st.session_state.api_calls += 1
+            st.session_state.total_cost += 0.01
+            st.session_state.total_tokens["input"] += 100
+            st.session_state.total_tokens["output"] += 50
+            st.success("테스트 API 호출이 추가되었습니다!")
+            st.rerun()
+
 st.markdown("### 프로젝트 기본 정보")
 
 # 접을 수 있는 섹션
@@ -173,6 +286,10 @@ if not st.session_state.get('show_project_info', True):
     blocks = load_prompt_blocks()
     extra_blocks = blocks["extra"]
     
+    # 건축설계 발표용 Narrative와 ArchiRender GPT 제외
+    excluded_ids = {"claude_narrative", "midjourney_prompt"}
+    available_blocks = [block for block in extra_blocks if block["id"] not in excluded_ids]
+    
     # 현재 선택된 단계들 (제거된 단계 제외)
     current_step_ids = set()
     if st.session_state.get('workflow_steps'):
@@ -189,9 +306,12 @@ if not st.session_state.get('show_project_info', True):
     if st.session_state.get('current_workflow'):
         from analysis_system import AnalysisSystem
         system = AnalysisSystem()
-        for objective in st.session_state.get('selected_objectives', []):
-            if objective in system.recommended_steps:
-                recommended_step_ids.update({step.id for step in system.recommended_steps[objective]})
+        # selected_objectives가 없을 경우 빈 리스트 사용
+        selected_objectives = st.session_state.get('selected_objectives', [])
+        if selected_objectives:  # 빈 리스트가 아닐 때만 처리
+            for objective in selected_objectives:
+                if objective in system.recommended_steps:
+                    recommended_step_ids.update({step.id for step in system.recommended_steps[objective]})
     
     st.sidebar.write("**선택 가능한 단계**:")
     
@@ -199,7 +319,7 @@ if not st.session_state.get('show_project_info', True):
     if 'sidebar_step_added' not in st.session_state:
         st.session_state.sidebar_step_added = False
     
-    for block in extra_blocks:
+    for block in available_blocks:
         block_id = block["id"]
         is_selected = block_id in current_step_ids
         is_recommended = block_id in recommended_step_ids
@@ -248,333 +368,7 @@ if st.session_state.cot_history:
         st.markdown(f"---\n{entry['result']}")
         st.markdown("---")
 
-# ─── 5. 명령어 기반 분석 흐름 ─────────────────────────────
-cmd = st.text_input("▶ 명령어 입력 (예: 시작 / 분석 진행 / N단계 진행 / 보고서 생성)")
-
-if cmd.strip() == "시작":
-    st.session_state.current_step_index = 0
-    st.session_state.cot_history = []
-    st.success("모든 입력이 완료되었습니다. '분석 진행'을 입력하세요.")
-
-elif cmd.strip() == "분석 진행" or cmd.strip().endswith("단계 진행"):
-    # PDF 업로드 상태 확인
-    if not st.session_state.get('uploaded_pdf'):
-        st.error("❌ PDF를 먼저 업로드해주세요!")
-        st.stop()
-    
-    # 필수 입력값 검증
-    user_inputs = get_user_inputs()
-    required_fields = ["project_name", "owner", "site_location", "site_area", "building_type", "project_goal"]
-    missing_fields = [field for field in required_fields if not user_inputs.get(field, "").strip()]
-    
-    if missing_fields:
-        st.error(f"❌ 다음 필수 정보를 입력해주세요: {', '.join(missing_fields)}")
-        st.stop()
-    
-    # PDF 처리 상태 확인
-    pdf_summary = get_pdf_summary()
-    if not pdf_summary:
-        st.error("❌ PDF 처리가 완료되지 않았습니다. PDF를 다시 업로드해주세요.")
-        st.stop()
-    
-    # 새로운 분석 시스템의 워크플로우 사용
-    ordered_blocks = st.session_state.get('ordered_blocks', [])
-    
-    # 실행할 단계 번호 결정
-    if cmd.strip() == "분석 진행":
-        idx = get_current_step_index()
-    else:
-        try:
-            idx = int(cmd.strip().replace("단계 진행", "")) - 1
-        except ValueError:
-            st.error("'N단계 진행' 형식으로 입력해주세요.")
-            idx = None
-
-    # 유효성 검사
-    if idx is not None and 0 <= idx < len(ordered_blocks):
-        blk = ordered_blocks[idx]
-        step_id = blk["id"]
-        prev = "\n".join(f"[{h['step']}] {h['result']}" for h in st.session_state.cot_history)
-        
-        # site_fields 안전하게 가져오기
-        site_fields = st.session_state.get("site_fields", {})
-        if not site_fields:
-            st.warning("⚠️ PDF에서 사이트 정보를 추출하지 못했습니다. 기본값으로 진행합니다.")
-            site_fields = {
-                "site_location": user_inputs.get("site_location", ""),
-                "site_area": user_inputs.get("site_area", ""),
-                "zoning": user_inputs.get("zoning", "")
-            }
-
-        # 단계별 상태 초기화
-        if "current_step_outputs" not in st.session_state:
-            st.session_state.current_step_outputs = {}
-        if st.session_state.current_step_outputs.get("step_id") != step_id:
-            st.session_state.current_step_outputs = {"step_id": step_id}
-        outputs = st.session_state.current_step_outputs
-
-        # 이미 완료된 단계인지 확인
-        cot_done_steps = [h['step'] for h in st.session_state.cot_history]
-        if blk['title'] in cot_done_steps:
-            st.info(f"이미 분석이 완료된 단계입니다. 다음 단계로 이동하세요.")
-        else:
-            # 통합 분석 버튼
-            if st.button(f"🔍 {blk['title']} 통합 분석 실행", key=f"analyze_{step_id}_{idx}"):
-                with st.spinner(f"{blk['title']} 통합 분석 중..."):
-                    # PDF 요약을 딕셔너리 형태로 변환
-                    pdf_summary_dict = {
-                        "pdf_summary": pdf_summary,
-                        "project_name": user_inputs.get("project_name", ""),
-                        "owner": user_inputs.get("owner", ""),
-                        "site_location": user_inputs.get("site_location", ""),
-                        "site_area": user_inputs.get("site_area", ""),
-                        "building_type": user_inputs.get("building_type", ""),
-                        "project_goal": user_inputs.get("project_goal", "")
-                    }
-                    
-                    # 통합 프롬프트 생성
-                    base_prompt = convert_dsl_to_prompt(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
-                    
-                    # 단계별로 다른 분석 실행
-                    results = {}
-                    output_structure = blk["content_dsl"].get("output_structure", [])
-                    
-                    # 동시 실행 대신 순차 실행
-                    if output_structure:
-                        # 순차적으로 실행 (동시 실행 대신)
-                        for i, structure in enumerate(output_structure):
-                            if i == 0:
-                                prompt = prompt_requirement_table(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
-                                results[f"result_{i}"] = run_requirement_table(prompt)
-                                time.sleep(5)  # 5초 대기
-                            elif i == 1:
-                                prompt = prompt_ai_reasoning(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
-                                results[f"result_{i}"] = run_ai_reasoning(prompt)
-                                time.sleep(5)  # 5초 대기
-                            elif i == 2:
-                                prompt = prompt_precedent_comparison(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
-                                results[f"result_{i}"] = run_precedent_comparison(prompt)
-                                time.sleep(5)  # 5초 대기
-                            elif i == 3:
-                                prompt = prompt_strategy_recommendation(blk["content_dsl"], user_inputs, prev, pdf_summary_dict, site_fields)
-                                results[f"result_{i}"] = run_strategy_recommendation(prompt)
-                    else:
-                        # 기본 4개 분석 (fallback)
-                        prompt_req = base_prompt + "\n\n⚠️ 반드시 '요구사항 정리표' 항목만 표로 생성. 그 외 항목은 출력하지 마세요."
-                        results["requirement_table"] = run_requirement_table(prompt_req)
-                        
-                        prompt_reason = base_prompt + "\n\n⚠️ 반드시 'AI reasoning' 항목(Chain-of-Thought 논리 해설)만 생성. 그 외 항목은 출력하지 마세요."
-                        results["ai_reasoning"] = run_ai_reasoning(prompt_reason)
-                        
-                        prompt_precedent = base_prompt + "\n\n⚠️ 반드시 '유사 사례 비교' 표 또는 비교 해설만 출력. 그 외 항목은 출력하지 마세요."
-                        results["precedent_comparison"] = run_precedent_comparison(prompt_precedent)
-                        
-                        prompt_strategy = base_prompt + "\n\n⚠️ 반드시 '전략적 제언 및 시사점'만 출력. 그 외 항목은 출력하지 마세요."
-                        results["strategy_recommendation"] = run_strategy_recommendation(prompt_strategy)
-                    
-                    # 결과를 session_state에 저장
-                    outputs.update(results)
-                    outputs["saved"] = True
-                    
-                    # 탭으로 분할 표시
-                    st.markdown(f"### 📋 {blk['title']} 분석 결과")
-                    
-                    if output_structure:
-                        # 동적으로 탭 생성
-                        tab_names = output_structure
-                        tabs = st.tabs(tab_names)
-                        
-                        # 각 탭에 해당하는 결과 표시
-                        for i, (tab, tab_name) in enumerate(zip(tabs, tab_names)):
-                            with tab:
-                                st.markdown(f"#### {tab_name}")
-                                result_key = f"result_{i}"
-                                if result_key in results:
-                                    st.markdown(results[result_key])
-                                else:
-                                    st.info("분석 결과가 준비되지 않았습니다.")
-                    else:
-                        # 기본 4개 탭 (fallback)
-                        tab1, tab2, tab3, tab4 = st.tabs([" 요구사항", " AI 추론", " 사례비교", "✅ 전략제언"])
-                        
-                        with tab1:
-                            st.markdown("#### 📊 요구사항 정리표")
-                            st.markdown(results.get("requirement_table", "결과 없음"))
-                        
-                        with tab2:
-                            st.markdown("#### 🧠 AI 추론 해설")
-                            st.markdown(results.get("ai_reasoning", "결과 없음"))
-                        
-                        with tab3:
-                            st.markdown("#### 🧾 유사 사례 비교")
-                            st.markdown(results.get("precedent_comparison", "결과 없음"))
-                        
-                        with tab4:
-                            st.markdown("#### ✅ 전략적 제언 및 시사점")
-                            st.markdown(results.get("strategy_recommendation", "결과 없음"))
-                    
-                    # 전체 결과를 cot_history에 저장
-                    if output_structure:
-                        # output_structure에 따라 동적으로 결과 조합
-                        full_result_parts = []
-                        for i, structure in enumerate(output_structure):
-                            result_key = f"result_{i}"
-                            if result_key in results:
-                                full_result_parts.append(f"{structure}\n{results[result_key]}")
-                        
-                        full_result = "\n\n".join(full_result_parts)
-                    else:
-                        # 기본 4개 키 사용 (fallback)
-                        full_result = (
-                            "📊 요구사항 정리표\n" + results.get("requirement_table", "결과 없음") + "\n\n" +
-                            "🧠 AI 추론 해설\n" + results.get("ai_reasoning", "결과 없음") + "\n\n" +
-                            "🧾 유사 사례 비교\n" + results.get("precedent_comparison", "결과 없음") + "\n\n" +
-                            "✅ 전략적 제언 및 시사점\n" + results.get("strategy_recommendation", "결과 없음")
-                        )
-                    
-                    st.session_state.cot_history.append({
-                        "step": blk["title"],
-                        "result": full_result,
-                        "summary": extract_summary(full_result),
-                        "insight": extract_insight(full_result)
-                    })
-                    
-                    save_step_result(blk["id"], full_result)
-                    append_step_history(
-                        step_id=blk["id"],
-                        title=blk["title"],
-                        prompt="통합 분석",
-                        result=full_result
-                    )
-                    
-                    st.success("✅ 통합 분석이 완료되었습니다! 다음 단계로 이동하세요.")
-                    st.session_state.current_step_index = idx + 1
-                    st.session_state.current_step_outputs = {}
-
-            # 진행 상황 표시
-            if outputs.get("saved"):
-                st.info("✅ 이 단계의 분석이 완료되었습니다.")
-            else:
-                st.info("💡 위의 '통합 분석 실행' 버튼을 클릭하여 분석을 시작하세요.")
-
-        # 안내 메시지
-        if st.session_state.current_step_index < len(ordered_blocks):
-            st.info(
-                f"■ '{blk['title']}' 완료. 다음: "
-                f"'{st.session_state.current_step_index+1}단계 진행'"
-            )
-        else:
-            st.info("■ 모든 단계 완료! '보고서 생성'을 입력하세요.")
-
-    else:
-        st.warning("유효한 단계가 아닙니다. 선택된 단계와 순서를 확인해주세요.")
-
-# ─── 웹페이지 생성 기능 ─────────────────────────────────────────────
-if cmd.strip() == "보고서 생성":
-    # user_inputs 먼저 가져오기
-    user_inputs = get_user_inputs()
-    
-    # 분석 결과 수집
-    analysis_results = []
-    if st.session_state.get('cot_history'):
-        for i, history in enumerate(st.session_state.cot_history):
-            analysis_results.append({
-                'step': history.get('step', f'단계 {i+1}'),
-                'summary': history.get('summary', ''),
-                'insight': history.get('insight', ''),
-                'result': history.get('result', '')
-            })
-    
-    # 프로젝트 정보
-    project_info = {
-        'project_name': user_inputs.get('project_name', '프로젝트'),
-        'owner': user_inputs.get('owner', ''),
-        'site_location': user_inputs.get('site_location', ''),
-        'site_area': user_inputs.get('site_area', ''),
-        'building_type': user_inputs.get('building_type', ''),
-        'project_goal': user_inputs.get('project_goal', '')
-    }
-    
-    # 웹페이지 생성 및 다운로드
-    from webpage_generator import create_webpage_download_button
-    create_webpage_download_button(analysis_results, project_info)
-    
-    # 기존 보고서 생성 로직도 유지
-    if st.session_state.get('cot_history'):
-        st.markdown("### 📋 전체 분석 보고서")
-        
-        # 프로젝트 정보 섹션
-        st.markdown("#### 📋 프로젝트 기본 정보")
-        project_info_text = f"""
-        **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
-        **건축주**: {user_inputs.get('owner', 'N/A')}
-        **대지위치**: {user_inputs.get('site_location', 'N/A')}
-        **대지면적**: {user_inputs.get('site_area', 'N/A')}
-        **건물용도**: {user_inputs.get('building_type', 'N/A')}
-        **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
-        """
-        st.markdown(project_info_text)
-        
-        # 분석 결과 섹션
-        st.markdown("#### 📊 분석 결과")
-        for i, history in enumerate(st.session_state.cot_history):
-            st.markdown(f"**{i+1}. {history.get('step', f'단계 {i+1}')}**")
-            if history.get('summary'):
-                st.markdown(f"**요약**: {history['summary']}")
-            if history.get('insight'):
-                st.markdown(f"**인사이트**: {history['insight']}")
-            st.markdown(history.get('result', ''))
-            st.markdown("---")
-        
-        # 전체 보고서 내용 생성
-        full_report_content = project_info_text + "\n\n" + "\n\n".join([
-            f"## {i+1}. {h.get('step', f'단계 {i+1}')}\n\n{h.get('result', '')}"
-            for i, h in enumerate(st.session_state.cot_history)
-        ])
-        
-        # 다운로드 버튼들
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            # 전체 보고서 다운로드 (TXT)
-            st.download_button(
-                label="📄 전체 보고서 다운로드 (TXT)",
-                data=full_report_content,
-                file_name=f"{user_inputs.get('project_name', '분석보고서')}_전체보고서.txt",
-                mime="text/plain"
-            )
-        
-        with col2:
-            # PDF 다운로드 (기존 report_generator 사용)
-            try:
-                from report_generator import generate_pdf_report
-                pdf_data = generate_pdf_report(full_report_content, user_inputs)
-                
-                st.download_button(
-                    label="📄 PDF 다운로드",
-                    data=pdf_data,
-                    file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.pdf",
-                    mime="application/pdf"
-                )
-            except Exception as e:
-                st.error(f"PDF 생성 중 오류가 발생했습니다: {str(e)}")
-        
-        with col3:
-            # Word 다운로드 (기존 report_generator 사용)
-            try:
-                from report_generator import generate_word_report
-                word_data = generate_word_report(full_report_content, user_inputs)
-                
-                st.download_button(
-                    label="📄 Word 다운로드",
-                    data=word_data,
-                    file_name=f"{user_inputs.get('project_name', '분석보고서')}_보고서.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-            except Exception as e:
-                st.error(f"Word 문서 생성 중 오류가 발생했습니다: {str(e)}")
-    else:
-        st.warning("생성된 분석 결과가 없습니다.")
+# 웹페이지 생성과 전체 분석 보고서는 보고서 생성 탭으로 이동
 
 # PDF 업로드 시 디버깅 정보
 if st.session_state.get('uploaded_pdf'):

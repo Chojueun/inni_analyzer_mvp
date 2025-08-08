@@ -65,6 +65,22 @@ def run_strategy_recommendation(full_prompt):
     except Exception as e:
         return f"❌ 오류: {e}"
 
+# --- 최적화 조건 분석 Signature & 함수
+class OptimizationConditionSignature(Signature):
+    input = InputField(desc="분석 목표, 프로그램, 조건, 분석 텍스트 등")
+    optimization_analysis = OutputField(desc="최적화 조건 분석 결과. 목적, 중요도, 고려사항 포함")
+
+def execute_agent(prompt):
+    """일반적인 AI 에이전트 실행 함수"""
+    try:
+        result = dspy.Predict(OptimizationConditionSignature)(input=prompt)
+        value = getattr(result, "optimization_analysis", "")
+        if not value or value.strip() == "" or "error" in value.lower():
+            return "⚠️ 결과 생성 실패: AI 분석이 정상적으로 생성되지 않았습니다."
+        return value
+    except Exception as e:
+        return f"❌ 오류: {e}"
+
 # --- 전체 합치기용 (실제 사용은 버튼 분할이 안전!)
 def run_full_analysis(full_prompt):
     req = run_requirement_table(full_prompt)

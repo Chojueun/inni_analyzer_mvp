@@ -1,83 +1,69 @@
-Inni Analyzer MVP
+# ArchInsight - AI-driven Project Insight & Workflow
 
-    GPT-4o 기반 건축 프로젝트 분석 도구
+건축 프로젝트 분석을 위한 AI 기반 워크플로우 시스템입니다.
 
-프로젝트 개요
+## 주요 기능
 
-    Inni Analyzer는 사용자가 업로드한 PDF(과업지시서, RFP 등)와 기본 프로젝트 정보를 바탕으로, 건축 프로젝트의 단계별 심층 분석을 자동화하는 Streamlit 애플리케이션입니다. DSPy(Declarative Self‑improving Python)를 활용해 여러 체인(CoT, BootstrapFewShot, ReAct) 방식으로 분석을 수행하고, 각 단계 결과를 체인 오브 사고(Chain‑of‑Thought) 방식으로 누적·요약합니다.
+- **프로젝트 정보 입력**: 프로젝트명, 건축주, 대지위치, 건물용도 등 기본 정보 입력
+- **PDF 문서 분석**: 업로드된 PDF 문서의 텍스트 추출 및 벡터 데이터베이스 저장
+- **AI 기반 분석**: DSPy를 활용한 건축 프로젝트 분석
+- **워크플로우 관리**: 용도별, 목적별 맞춤형 분석 단계 구성
+- **보고서 생성**: PDF, Word, TXT 형식의 분석 보고서 생성
+- **웹페이지 생성**: Card 형식의 반응형 웹페이지 생성
 
-주요 기능
+## 설치 방법
 
-    PDF 요약: 원문 PDF 텍스트를 추출 후 DSPy CoT 기반 요약 모듈로 간결하게 압축
+1. 의존성 설치:
+```bash
+pip install -r requirements.txt
+```
 
-    분석 블럭: 프로젝트 정보 요약, 법적 조건 분석, 시장 조사 등 JSON으로 정의된 다수 블럭
+2. 환경 변수 설정:
+```bash
+# .env 파일 생성
+ANTHROPIC_API_KEY=your_anthropic_api_key
+SERP_API_KEY=your_serpapi_key
+```
 
-    체인 방식 선택: CoT, BootstrapFewShot, ReAct 중 필요에 따라 멀티 선택
+3. 애플리케이션 실행:
+```bash
+streamlit run app.py
+```
 
-    블럭 순서 조정: Drag & Drop + 체크박스로 단계별 실행 순서 변경
+## 사용 방법
 
-    분석 실행: 선택된 블럭과 방식별로 GPT 분석 동시 실행 및 결과 비교
+1. **프로젝트 정보 입력**: 프로젝트 기본 정보와 PDF 문서 업로드
+2. **용도 및 목적 선택**: 건축 용도와 분석 목적 선택
+3. **워크플로우 구성**: 자동 제안된 분석 단계를 필요에 따라 수정
+4. **분석 실행**: 각 단계별로 AI 분석 수행
+5. **결과 확인**: 분석 결과를 다양한 형식으로 다운로드
 
-    체인 누적: 각 단계 결과를 session_state에 저장, 전체 흐름을 Chain‑of‑Thought로 요약
+## 파일 구조
 
-    결과 다운로드: Markdown 및 PDF 형태로 전체 분석 리포트 다운로드
+- `app.py`: 메인 애플리케이션
+- `workflow_ui.py`: 워크플로우 UI 관리
+- `analysis_system.py`: 분석 시스템 핵심 로직
+- `agent_executor.py`: AI 에이전트 실행
+- `dsl_to_prompt.py`: DSL을 프롬프트로 변환
+- `utils.py`: 유틸리티 함수들
+- `utils_pdf_vector.py`: PDF 벡터 처리
+- `report_generator.py`: 보고서 생성
+- `webpage_generator.py`: 웹페이지 생성
+- `user_state.py`: 사용자 상태 관리
+- `summary_generator.py`: 요약 생성
+- `search_helper.py`: 웹 검색 도우미
+- `init_dspy.py`: DSPy 초기화
 
-파일 구조
+## 주요 기술 스택
 
-    inni_analyzer_mvp/
-    ├─ app.py               # Streamlit UI 및 실행 로직
-    ├─ agent_executor.py    # DSPy Module, CoT/Bootstrap/ReAct 체인 정의
-    ├─ dsl_to_prompt.py     # DSL 블럭 → 프롬프트 변환 함수
-    ├─ prompt_loader.py     # 고정(core) 블럭 + 선택(extra) 블럭 로드
-    ├─ summary_generator.py # DSPy CoT 기반 PDF 요약 시그니처
-    ├─ user_state.py        # Streamlit session_state 초기화/저장 함수
-    ├─ utils.py             # PDF 추출, 텍스트 정제, 프롬프트 병합 헬퍼
-    ├─ prompt_blocks_dsl.json  # 분석 블럭 DSL 정의 파일
-    ├─ requirements.txt     # 의존성 목록
-    └─ README.md            # 프로젝트 문서 (현재 파일)
+- **Streamlit**: 웹 인터페이스
+- **DSPy**: AI 프롬프트 관리
+- **Anthropic Claude**: AI 모델
+- **ChromaDB**: 벡터 데이터베이스
+- **PyMuPDF**: PDF 처리
+- **ReportLab**: PDF 생성
+- **python-docx**: Word 문서 생성
 
-설치 및 실행
+## 라이선스
 
-# 1. 레포지토리 클론 및 환경 설정
-    git clone https://github.com/your_org/inni_analyzer_mvp.git
-    cd inni_analyzer_mvp
-    python -m venv .venv
-    source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
-
-# 2. 의존성 설치
-    pip install -r requirements.txt
-
-# 3. 환경변수 설정
-# 프로젝트 루트에 .env 파일을 생성하고 OpenAI API 키를 추가
-    echo "OPENAI_API_KEY=your_api_key_here" > .env
-
-# 4. 앱 실행
-    streamlit run app.py
-
-사용 방법
-
-    사이드바에서 프로젝트 기본 정보 입력 (건축주, 대상지, 목표 등)
-
-    PDF 업로드 후 자동 요약 완료 메시지 확인
-
-    분석 방식(CoT, BootstrapFewShot, ReAct) 멀티 선택
-
-    블럭 순서 조정 및 체크박스로 분석 대상 블럭 선택
-
-    메인 화면에서 🚀 분석 실행 버튼 클릭
-
-    각 단계별 결과를 확인하고, 하단에서 Markdown/PDF 리포트 다운로드
-
-확장 및 커스터마이징
-
-    블럭 추가: prompt_blocks_dsl.json 에 DSL 형식으로 블럭 정의 추가
-
-    분석 체인: agent_executor.py 에 ReAct 외 추가 DSPy 체인 로직 구현
-
-    UI 커스터마이징: Streamlit 컴포넌트 교체 및 스타일링
-
-    RAG 연동: search_helper.py 에 검색 API 통합 후 툴 호출
-
-라이선스
-
-     프로젝트의 모든 권리는 프로젝트 작성자 조주은에게 있습니다. 2025.
+MIT License
