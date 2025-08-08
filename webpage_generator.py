@@ -46,23 +46,27 @@ def generate_card_webpage(analysis_results: List[Dict], project_info: Dict) -> s
             text-align: center;
             margin-bottom: 40px;
             padding: 40px 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 50%, #dee2e6 100%);
+            color: #495057;
             border-radius: 15px;
             margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }}
         
         .header h1 {{
             font-size: 2.5rem;
             margin-bottom: 10px;
-            font-weight: 300;
+            font-weight: 400;
+            color: #212529;
         }}
         
         .header p {{
             font-size: 1.1rem;
-            opacity: 0.9;
+            opacity: 0.8;
             max-width: 600px;
             margin: 0 auto;
+            color: #6c757d;
         }}
         
         .info-cards {{
