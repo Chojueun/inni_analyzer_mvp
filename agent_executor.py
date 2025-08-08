@@ -81,6 +81,22 @@ def execute_agent(prompt):
     except Exception as e:
         return f"❌ 오류: {e}"
 
+# --- Narrative 생성 Signature & 함수
+class NarrativeGenerationSignature(Signature):
+    input = InputField(desc="프로젝트 정보, Narrative 방향 설정, 분석 결과 등")
+    narrative_story = OutputField(desc="소설처럼 감성적이고 몰입감 있는 건축설계 발표용 Narrative. 스토리텔링 중심의 서술")
+
+def generate_narrative(prompt):
+    """Narrative 생성 함수 - 소설처럼 감성적이고 몰입감 있는 스토리텔링"""
+    try:
+        result = dspy.Predict(NarrativeGenerationSignature)(input=prompt)
+        value = getattr(result, "narrative_story", "")
+        if not value or value.strip() == "" or "error" in value.lower():
+            return "⚠️ 결과 생성 실패: Narrative가 정상적으로 생성되지 않았습니다."
+        return value
+    except Exception as e:
+        return f"❌ 오류: {e}"
+
 # --- 전체 합치기용 (실제 사용은 버튼 분할이 안전!)
 def run_full_analysis(full_prompt):
     req = run_requirement_table(full_prompt)

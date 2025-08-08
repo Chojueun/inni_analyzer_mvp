@@ -228,4 +228,161 @@ def generate_word_report(content, user_inputs):
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-    return buffer.getvalue() 
+    return buffer.getvalue()
+
+def generate_report_content(report_type, include_charts, include_recommendations, include_appendix):
+    """보고서 내용 생성 - 보고서 유형별 차이점 적용"""
+    from user_state import get_user_inputs
+    user_inputs = get_user_inputs()
+    
+    # 기본 정보
+    report_content = f"""
+# {user_inputs.get('project_name', '프로젝트')} 분석 보고서
+**보고서 유형**: {report_type}
+
+## 📋 프로젝트 기본 정보
+- **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
+- **건축주**: {user_inputs.get('owner', 'N/A')}
+- **대지위치**: {user_inputs.get('site_location', 'N/A')}
+- **대지면적**: {user_inputs.get('site_area', 'N/A')}
+- **건물용도**: {user_inputs.get('building_type', 'N/A')}
+- **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
+
+"""
+    
+    # 분석 결과 추가
+    import streamlit as st
+    if st.session_state.get('cot_history'):
+        if report_type == "전체 분석 보고서":
+            # 전체 분석 보고서: 모든 상세 내용 포함
+            report_content += "## 📊 전체 분석 결과\n"
+            for i, history in enumerate(st.session_state.cot_history, 1):
+                report_content += f"""
+### {i}. {history['step']}
+
+**요약**: {history.get('summary', '')}
+
+**인사이트**: {history.get('insight', '')}
+
+**상세 분석**:
+{history.get('result', '')}
+
+---
+"""
+        
+        elif report_type == "요약 보고서":
+            # 요약 보고서: 핵심 요약과 인사이트만
+            report_content += "## 📊 분석 결과 요약\n"
+            for i, history in enumerate(st.session_state.cot_history, 1):
+                report_content += f"""
+### {i}. {history['step']}
+
+**핵심 요약**: {history.get('summary', '')}
+
+**주요 인사이트**: {history.get('insight', '')}
+
+---
+"""
+        
+        elif report_type == "전문가 보고서":
+            # 전문가 보고서: 기술적 분석과 전문적 권장사항
+            report_content += "## 🧠 전문가 분석 결과\n"
+            for i, history in enumerate(st.session_state.cot_history, 1):
+                report_content += f"""
+### {i}. {history['step']}
+
+**분석 요약**: {history.get('summary', '')}
+
+**전문가 인사이트**: {history.get('insight', '')}
+
+**기술적 분석**:
+{history.get('result', '')[:500]}...
+
+---
+"""
+        
+        elif report_type == "클라이언트 보고서":
+            # 클라이언트 보고서: 비즈니스 관점의 핵심 내용
+            report_content += "## 💼 비즈니스 분석 결과\n"
+            for i, history in enumerate(st.session_state.cot_history, 1):
+                report_content += f"""
+### {i}. {history['step']}
+
+**비즈니스 요약**: {history.get('summary', '')}
+
+**핵심 가치**: {history.get('insight', '')}
+
+**실행 가능한 제안**:
+{history.get('result', '')[:300]}...
+
+---
+"""
+    
+    # 추가 섹션들 (보고서 유형별로 다르게 적용)
+    if include_charts:
+        if report_type == "전체 분석 보고서":
+            report_content += """
+## 📊 상세 차트 및 다이어그램
+(모든 차트 및 다이어그램이 포함됩니다)
+"""
+        elif report_type == "요약 보고서":
+            report_content += """
+## 📊 핵심 차트
+(주요 차트만 포함됩니다)
+"""
+        elif report_type == "전문가 보고서":
+            report_content += """
+## 🧠 전문가 차트 및 분석 다이어그램
+(기술적 분석을 위한 상세 차트가 포함됩니다)
+"""
+        elif report_type == "클라이언트 보고서":
+            report_content += """
+## 💼 비즈니스 차트
+(비즈니스 의사결정을 위한 핵심 차트가 포함됩니다)
+"""
+    
+    if include_recommendations:
+        if report_type == "전체 분석 보고서":
+            report_content += """
+## 💡 종합 권장사항
+분석 결과를 바탕으로 한 상세한 권장사항이 포함됩니다.
+"""
+        elif report_type == "요약 보고서":
+            report_content += """
+## 💡 핵심 권장사항
+가장 중요한 권장사항만 포함됩니다.
+"""
+        elif report_type == "전문가 보고서":
+            report_content += """
+## 💡 전문가 권장사항
+기술적 관점에서의 전문적 권장사항이 포함됩니다.
+"""
+        elif report_type == "클라이언트 보고서":
+            report_content += """
+## 💡 비즈니스 권장사항
+비즈니스 관점에서의 실행 가능한 권장사항이 포함됩니다.
+"""
+    
+    if include_appendix:
+        if report_type == "전체 분석 보고서":
+            report_content += """
+## 📋 상세 부록
+모든 추가 자료 및 참고문헌이 포함됩니다.
+"""
+        elif report_type == "요약 보고서":
+            report_content += """
+## 📋 핵심 부록
+주요 참고자료만 포함됩니다.
+"""
+        elif report_type == "전문가 보고서":
+            report_content += """
+## 📋 전문가 부록
+기술적 참고자료 및 전문 문헌이 포함됩니다.
+"""
+        elif report_type == "클라이언트 보고서":
+            report_content += """
+## 📋 비즈니스 부록
+비즈니스 관련 참고자료가 포함됩니다.
+"""
+    
+    return report_content

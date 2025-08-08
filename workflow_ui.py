@@ -281,19 +281,31 @@ def render_analysis_workflow():
                             
                             with tab1:
                                 st.markdown("#### 📊 요구사항 정리표")
-                                st.markdown(results.get("requirement_table", "결과 없음"))
+                                for history in st.session_state.cot_history:
+                                    st.markdown(f"**{history.get('step', '')}**")
+                                    st.markdown(history.get('result', '')[:300] + "...")
+                                    st.markdown("---")
                             
                             with tab2:
                                 st.markdown("#### 🧠 AI 추론 해설")
-                                st.markdown(results.get("ai_reasoning", "결과 없음"))
+                                for history in st.session_state.cot_history:
+                                    st.markdown(f"**{history.get('step', '')}**")
+                                    st.markdown(history.get('result', '')[:300] + "...")
+                                    st.markdown("---")
                             
                             with tab3:
                                 st.markdown("#### 🧾 유사 사례 비교")
-                                st.markdown(results.get("precedent_comparison", "결과 없음"))
+                                for history in st.session_state.cot_history:
+                                    st.markdown(f"**{history.get('step', '')}**")
+                                    st.markdown(history.get('result', '')[:300] + "...")
+                                    st.markdown("---")
                             
                             with tab4:
                                 st.markdown("#### ✅ 전략적 제언 및 시사점")
-                                st.markdown(results.get("strategy_recommendation", "결과 없음"))
+                                for history in st.session_state.cot_history:
+                                    st.markdown(f"**{history.get('step', '')}**")
+                                    st.markdown(history.get('result', '')[:300] + "...")
+                                    st.markdown("---")
                         
                         # 전체 결과를 cot_history에 저장
                         if output_structure:
@@ -427,28 +439,16 @@ def render_optimization_tab():
         st.warning("⚠️ 먼저 분석을 완료해주세요.")
         return
     
-    st.info(" 분석 결과를 바탕으로 매스별 최적화 조건을 분석합니다.")
+    st.info("🎯 기존 분석 결과를 바탕으로 매스별 최적화 조건을 자동으로 분석합니다.")
     
-    # STEP 1: 최적화 조건 입력
-    st.subheader("STEP 1: 최적화 조건 입력")
-    
-    # 최적화 조건 입력
-    optimization_conditions = st.text_area(
-        "최적화 조건",
-        value=st.session_state.get('optimization_conditions', ''),
-        placeholder="예: 예산 제약, 시간 제약, 특별한 요구사항 등",
-        help="분석에 적용할 특별한 조건이나 제약사항을 입력하세요."
-    )
-    
-    # 조건 저장
-    st.session_state.optimization_conditions = optimization_conditions
-    
-    # STEP 2: 매스별 최적화 조건 분석 실행
-    st.subheader("STEP 2: 매스별 최적화 조건 분석")
-    
-    if st.button("🚀 매스별 최적화 조건 분석 실행", type="primary"):
-        with st.spinner("매스별 최적화 조건을 분석하고 있습니다..."):
+    # 자동 분석 실행
+    if st.button("🚀 매스별 최적화 조건 자동 분석", type="primary"):
+        with st.spinner("매스별 최적화 조건을 자동으로 분석하고 있습니다..."):
             try:
+                # 사용자 입력 가져오기
+                from user_state import get_user_inputs
+                user_inputs = get_user_inputs()
+                
                 # 분석 결과 요약
                 analysis_summary = "\n\n".join([
                     f"**{h['step']}**: {h.get('summary', '')}"
@@ -458,18 +458,17 @@ def render_optimization_tab():
                 # 매스별 최적화 조건 분석 프롬프트 생성
                 optimization_prompt = f"""
 프로젝트 정보:
-- 프로젝트명: {st.session_state.get('project_name', '')}
-- 건물 유형: {st.session_state.get('building_type', '')}
-- 대지 위치: {st.session_state.get('site_location', '')}
-- 건축주: {st.session_state.get('owner', '')}
-- 대지 면적: {st.session_state.get('site_area', '')}
-
-최적화 조건: {optimization_conditions}
+- 프로젝트명: {user_inputs.get('project_name', '')}
+- 건물 유형: {user_inputs.get('building_type', '')}
+- 대지 위치: {user_inputs.get('site_location', '')}
+- 건축주: {user_inputs.get('owner', '')}
+- 대지 면적: {user_inputs.get('site_area', '')}
+- 프로젝트 목표: {user_inputs.get('project_goal', '')}
 
 기존 분석 결과:
 {analysis_summary}
 
-위 정보를 바탕으로 매스별 최적화 조건을 분석해주세요.
+위 정보를 바탕으로 매스별 최적화 조건을 자동으로 분석해주세요.
 
 분석 요청사항:
 1. **매스별 중요 프로그램 식별**: 각 매스에서 어떤 프로그램이 가장 중요한지 분석
@@ -518,13 +517,12 @@ def render_optimization_tab():
                 optimization_data = {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "project_info": {
-                        "project_name": st.session_state.get('project_name', ''),
-                        "building_type": st.session_state.get('building_type', ''),
-                        "site_location": st.session_state.get('site_location', ''),
-                        "owner": st.session_state.get('owner', ''),
-                        "site_area": st.session_state.get('site_area', '')
+                        "project_name": user_inputs.get('project_name', ''),
+                        "building_type": user_inputs.get('building_type', ''),
+                        "site_location": user_inputs.get('site_location', ''),
+                        "owner": user_inputs.get('owner', ''),
+                        "site_area": user_inputs.get('site_area', '')
                     },
-                    "optimization_conditions": optimization_conditions,
                     "analysis_result": optimization_result
                 }
                 
@@ -593,190 +591,149 @@ def render_report_tab():
                 st.markdown("---")
                 st.markdown(history.get('result', ''))
         
-        # 보고서 생성 섹션 추가
+        # PDF/Word 다운로드 섹션 추가 (Tab 6에서 이동)
         st.markdown("---")
-        st.subheader("📄 보고서 생성")
+        st.subheader("📄 분석 결과 다운로드")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📄 PDF 보고서")
+            if st.button("📄 PDF 다운로드", type="primary", key="pdf_download_analysis"):
+                with st.spinner("PDF 보고서를 생성하고 있습니다..."):
+                    try:
+                        from report_generator import generate_report_content, generate_pdf_report
+                        report_content = generate_report_content(
+                            "전체 분석 보고서", 
+                            True, 
+                            True, 
+                            False
+                        )
+                        
+                        pdf_data = generate_pdf_report(report_content, st.session_state)
+                        st.download_button(
+                            label="📄 PDF 다운로드",
+                            data=pdf_data,
+                            file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.pdf",
+                            mime="application/pdf",
+                            key="pdf_download_analysis_final"
+                        )
+                        
+                    except Exception as e:
+                        st.error(f"PDF 생성 오류: {e}")
+        
+        with col2:
+            st.markdown("#### 📄 Word 보고서")
+            if st.button("📄 Word 다운로드", type="primary", key="word_download_analysis"):
+                with st.spinner("Word 보고서를 생성하고 있습니다..."):
+                    try:
+                        from report_generator import generate_report_content, generate_word_report
+                        report_content = generate_report_content(
+                            "전체 분석 보고서", 
+                            True, 
+                            True, 
+                            False
+                        )
+                        
+                        word_data = generate_word_report(report_content, st.session_state)
+                        st.download_button(
+                            label="📄 Word 다운로드",
+                            data=word_data,
+                            file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key="word_download_analysis_final"
+                        )
+                        
+                    except Exception as e:
+                        st.error(f"Word 생성 오류: {e}")
+        
+        # 전체 누적 분석 결과
+        st.markdown("---")
+        st.subheader("📊 전체 누적 분석 결과")
         
         # 사용자 입력 가져오기
         from user_state import get_user_inputs
         user_inputs = get_user_inputs()
         
-        # 분석 결과 수집
-        analysis_results = []
-        for i, history in enumerate(st.session_state.cot_history, 1):
-            analysis_results.append({
-                'step': history.get('step', f'단계 {i}'),
-                'summary': history.get('summary', ''),
-                'insight': history.get('insight', ''),
-                'result': history.get('result', '')
-            })
+        st.markdown("#### 📋 프로젝트 기본 정보")
+        project_info_text = f"""
+        **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
+        **건축주**: {user_inputs.get('owner', 'N/A')}
+        **대지위치**: {user_inputs.get('site_location', 'N/A')}
+        **대지면적**: {user_inputs.get('site_area', 'N/A')}
+        **건물용도**: {user_inputs.get('building_type', 'N/A')}
+        **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
+        """
+        st.markdown(project_info_text)
         
-        # 프로젝트 정보
-        project_info = {
-            'project_name': user_inputs.get('project_name', '프로젝트'),
-            'owner': user_inputs.get('owner', ''),
-            'site_location': user_inputs.get('site_location', ''),
-            'site_area': user_inputs.get('site_area', ''),
-            'building_type': user_inputs.get('building_type', ''),
-            'project_goal': user_inputs.get('project_goal', '')
-        }
+        # 전체 분석 결과를 output_structure 기반 동적 탭으로 표시
+        st.markdown("#### 📊 전체 분석 결과")
         
-        # 보고서 생성 옵션
-        col1, col2, col3 = st.columns(3)
+        # DSL에서 output_structure 가져오기
+        from prompt_loader import load_prompt_blocks
+        blocks = load_prompt_blocks()
+        extra_blocks = blocks["extra"]
         
-        with col1:
-            st.markdown("#### 🌐 웹페이지 생성")
-            from webpage_generator import create_webpage_download_button
-            create_webpage_download_button(analysis_results, project_info, show_warning=False)
+        # 모든 단계의 output_structure 수집
+        all_output_structures = set()
+        for block in extra_blocks:
+            if "content_dsl" in block and "output_structure" in block["content_dsl"]:
+                for structure in block["content_dsl"]["output_structure"]:
+                    all_output_structures.add(structure)
         
-        with col2:
-            st.markdown("#### 📄 문서 보고서")
-            report_type = st.selectbox(
-                "보고서 유형",
-                ["전체 분석 보고서", "요약 보고서", "전문가 보고서", "클라이언트 보고서"],
-                key="report_type_analysis"
-            )
+        if all_output_structures:
+            # output_structure 기반 동적 탭 생성
+            result_tabs = st.tabs(list(all_output_structures))
             
-            include_charts = st.checkbox("📊 차트 포함", value=True, key="charts_analysis")
-            include_recommendations = st.checkbox("💡 권장사항 포함", value=True, key="recommendations_analysis")
-            include_appendix = st.checkbox("📋 부록 포함", value=False, key="appendix_analysis")
+            for i, (tab, structure_name) in enumerate(zip(result_tabs, all_output_structures)):
+                with tab:
+                    st.markdown(f"### {structure_name}")
+                    
+                    # 각 단계별로 해당 구조에 맞는 내용 표시
+                    for j, history in enumerate(st.session_state.cot_history):
+                        st.markdown(f"####  단계 {j+1}: {history.get('step', f'단계 {j+1}')}")
+                        
+                        # 구조별로 다른 표시 방식
+                        if "매트릭스" in structure_name or "표" in structure_name:
+                            st.markdown("##### 📊 구조화된 데이터")
+                            st.markdown(history.get('result', '')[:500] + "...")
+                        elif "분석" in structure_name or "추론" in structure_name:
+                            st.markdown("##### 🧠 분석 및 추론")
+                            st.markdown(history.get('result', '')[:500] + "...")
+                        else:
+                            st.markdown("##### 📋 일반 결과")
+                            st.markdown(history.get('result', '')[:500] + "...")
+        else:
+            # 기본 탭 구조
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 요구사항", "🧠 AI 추론", "�� 사례비교", "✅ 전략제언"])
             
-            if st.button("📄 보고서 생성", type="primary", key="generate_report_analysis"):
-                with st.spinner("보고서를 생성하고 있습니다..."):
-                    try:
-                        # 보고서 내용 생성
-                        from report_generator import generate_report_content, generate_pdf_report, generate_word_report
-                        report_content = generate_report_content(
-                            report_type, 
-                            include_charts, 
-                            include_recommendations, 
-                            include_appendix
-                        )
-                        
-                        # 다운로드 버튼들
-                        col_a, col_b, col_c = st.columns(3)
-                        
-                        with col_a:
-                            st.download_button(
-                                label="📄 TXT 다운로드",
-                                data=report_content,
-                                file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.txt",
-                                mime="text/plain"
-                            )
-                        
-                        with col_b:
-                            try:
-                                pdf_data = generate_pdf_report(report_content, st.session_state)
-                                st.download_button(
-                                    label="📄 PDF 다운로드",
-                                    data=pdf_data,
-                                    file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.pdf",
-                                    mime="application/pdf"
-                                )
-                            except Exception as e:
-                                st.error(f"PDF 생성 오류: {e}")
-                        
-                        with col_c:
-                            try:
-                                word_data = generate_word_report(report_content, st.session_state)
-                                st.download_button(
-                                    label="📄 Word 다운로드",
-                                    data=word_data,
-                                    file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.docx",
-                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                )
-                            except Exception as e:
-                                st.error(f"Word 생성 오류: {e}")
-                        
-                        # 보고서 내용 미리보기
-                        st.subheader("📋 보고서 미리보기")
-                        st.markdown(report_content[:2000] + ("..." if len(report_content) > 2000 else ""))
-                        
-                    except Exception as e:
-                        st.error(f"❌ 보고서 생성 중 오류가 발생했습니다: {e}")
-        
-        with col3:
-            st.markdown("#### 📊 전체 분석 결과")
-            if st.button("📊 전체 결과 보기", key="view_full_results"):
-                st.markdown("#### 📋 프로젝트 기본 정보")
-                project_info_text = f"""
-                **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
-                **건축주**: {user_inputs.get('owner', 'N/A')}
-                **대지위치**: {user_inputs.get('site_location', 'N/A')}
-                **대지면적**: {user_inputs.get('site_area', 'N/A')}
-                **건물용도**: {user_inputs.get('building_type', 'N/A')}
-                **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
-                """
-                st.markdown(project_info_text)
-                
-                # 전체 분석 결과를 output_structure 기반 동적 탭으로 표시
-                st.markdown("#### 📊 전체 분석 결과")
-                
-                # DSL에서 output_structure 가져오기
-                from prompt_loader import load_prompt_blocks
-                blocks = load_prompt_blocks()
-                extra_blocks = blocks["extra"]
-                
-                # 모든 단계의 output_structure 수집
-                all_output_structures = set()
-                for block in extra_blocks:
-                    if "content_dsl" in block and "output_structure" in block["content_dsl"]:
-                        for structure in block["content_dsl"]["output_structure"]:
-                            all_output_structures.add(structure)
-                
-                if all_output_structures:
-                    # output_structure 기반 동적 탭 생성
-                    result_tabs = st.tabs(list(all_output_structures))
-                    
-                    for i, (tab, structure_name) in enumerate(zip(result_tabs, all_output_structures)):
-                        with tab:
-                            st.markdown(f"### {structure_name}")
-                            
-                            # 각 단계별로 해당 구조에 맞는 내용 표시
-                            for j, history in enumerate(st.session_state.cot_history):
-                                st.markdown(f"####  단계 {j+1}: {history.get('step', f'단계 {j+1}')}")
-                                
-                                # 구조별로 다른 표시 방식
-                                if "매트릭스" in structure_name or "표" in structure_name:
-                                    st.markdown("##### 📊 구조화된 데이터")
-                                    st.markdown(history.get('result', '')[:500] + "...")
-                                elif "분석" in structure_name or "추론" in structure_name:
-                                    st.markdown("##### 🧠 분석 및 추론")
-                                    st.markdown(history.get('result', '')[:500] + "...")
-                                else:
-                                    st.markdown("##### 📋 일반 결과")
-                                    st.markdown(history.get('result', '')[:500] + "...")
-                else:
-                    # 기본 탭 구조
-                    tab1, tab2, tab3, tab4 = st.tabs(["📊 요구사항", "🧠 AI 추론", "🧾 사례비교", "✅ 전략제언"])
-                    
-                    with tab1:
-                        st.markdown("#### 📊 요구사항 정리표")
-                        for history in st.session_state.cot_history:
-                            st.markdown(f"**{history.get('step', '')}**")
-                            st.markdown(history.get('result', '')[:300] + "...")
-                            st.markdown("---")
-                    
-                    with tab2:
-                        st.markdown("#### 🧠 AI 추론 해설")
-                        for history in st.session_state.cot_history:
-                            st.markdown(f"**{history.get('step', '')}**")
-                            st.markdown(history.get('result', '')[:300] + "...")
-                            st.markdown("---")
-                    
-                    with tab3:
-                        st.markdown("#### 🧾 유사 사례 비교")
-                        for history in st.session_state.cot_history:
-                            st.markdown(f"**{history.get('step', '')}**")
-                            st.markdown(history.get('result', '')[:300] + "...")
-                            st.markdown("---")
-                    
-                    with tab4:
-                        st.markdown("#### ✅ 전략적 제언 및 시사점")
-                        for history in st.session_state.cot_history:
-                            st.markdown(f"**{history.get('step', '')}**")
-                            st.markdown(history.get('result', '')[:300] + "...")
-                            st.markdown("---")
+            with tab1:
+                st.markdown("#### 📊 요구사항 정리표")
+                for history in st.session_state.cot_history:
+                    st.markdown(f"**{history.get('step', '')}**")
+                    st.markdown(history.get('result', '')[:300] + "...")
+                    st.markdown("---")
+            
+            with tab2:
+                st.markdown("#### 🧠 AI 추론 해설")
+                for history in st.session_state.cot_history:
+                    st.markdown(f"**{history.get('step', '')}**")
+                    st.markdown(history.get('result', '')[:300] + "...")
+                    st.markdown("---")
+            
+            with tab3:
+                st.markdown("#### 🧾 유사 사례 비교")
+                for history in st.session_state.cot_history:
+                    st.markdown(f"**{history.get('step', '')}**")
+                    st.markdown(history.get('result', '')[:300] + "...")
+                    st.markdown("---")
+            
+            with tab4:
+                st.markdown("#### ✅ 전략적 제언 및 시사점")
+                for history in st.session_state.cot_history:
+                    st.markdown(f"**{history.get('step', '')}**")
+                    st.markdown(history.get('result', '')[:300] + "...")
+                    st.markdown("---")
     else:
         st.info("📝 분석을 먼저 진행해주세요.")
 
@@ -789,7 +746,7 @@ def render_claude_narrative_tab():
         st.warning("⚠️ 먼저 분석을 완료해주세요.")
         return
     
-    st.info("🎯 건축설계 발표용 Narrative를 생성합니다.")
+    st.info("🎯 건축설계 발표용 Narrative를 단계별로 생성하는 구조화된 시스템입니다.")
     
     # STEP 1: 기본 정보 입력
     st.subheader("STEP 1: 기본 정보 입력")
@@ -799,25 +756,99 @@ def render_claude_narrative_tab():
         project_name = st.text_input("프로젝트명", value=st.session_state.get('project_name', ''))
         building_type = st.text_input("건물 유형", value=st.session_state.get('building_type', ''))
         site_location = st.text_input("대지 위치", value=st.session_state.get('site_location', ''))
+        owner = st.text_input("건축주", value=st.session_state.get('owner', ''))
+        owner_type = st.selectbox("발주처 특성", ["공공기관", "민간기업", "개인", "교육기관", "의료기관", "문화기관"])
     
     with col2:
-        owner = st.text_input("건축주", value=st.session_state.get('owner', ''))
         site_area = st.text_input("대지 면적", value=st.session_state.get('site_area', ''))
-        project_goal = st.text_area("프로젝트 목표", value=st.session_state.get('project_goal', ''))
+        building_scale = st.text_input("건물 규모", placeholder="연면적, 층수 등")
+        surrounding_env = st.text_area("주변 환경", placeholder="자연환경, 도시환경, 교통, 랜드마크 등")
+        regional_context = st.text_area("지역적 맥락", placeholder="역사, 문화, 사회적 특성")
     
     # STEP 2: Narrative 방향 설정
     st.subheader("STEP 2: Narrative 방향 설정")
-    narrative_style = st.selectbox(
-        "Narrative 스타일",
-        ["기술적/객관적", "감성적/서술적", "비즈니스 중심", "혁신적/미래지향적"]
+    
+    # 2-1. 감성 ↔ 논리 비율 선택
+    st.markdown("#### 2-1. 감성 ↔ 논리 비율 선택")
+    emotion_logic_ratio = st.selectbox(
+        "감성/논리 비율을 선택하세요:",
+        [
+            "A. 감성 중심형 (감성 90% / 논리 10%) - 감정적 울림, 서정적 표현, 상징성 중심",
+            "B. 균형형 (감성 60% / 논리 40%) - 사용자 경험 중심 + 분석 기반 논리 서술의 조화",
+            "C. 전략 중심형 (감성 30% / 논리 70%) - 기능적 해법 + 분석 데이터 기반 논리 중심",
+            "D. 데이터 기반형 (감성 10% / 논리 90%) - 통계·규범·정책 중심 논리적 설득"
+        ]
     )
     
-    target_audience = st.multiselect(
-        "대상 청중",
-        ["건축주", "투자자", "정부기관", "일반 대중", "전문가", "학계"]
+    # 2-2. 서술 스타일/톤 선택
+    st.markdown("#### 2-2. 서술 스타일/톤 선택")
+    narrative_tone = st.selectbox(
+        "서술 스타일을 선택하세요:",
+        [
+            "A. 공공적/진정성형 - 지역사회 기여, 지속가능성, 공동체 가치 강조",
+            "B. 비즈니스 중심형 - 경제성, 차별화 전략, 고객 경험 중심 강조",
+            "C. 미래지향/비전형 - 변화 주도, 혁신, 미래 라이프스타일 제안",
+            "D. 문화/상징성형 - 장소성, 역사 해석, 상징적 메시지 중심",
+            "E. 사용자 감성형 - 일상 경험과 공간의 만남, 감각 중심"
+        ]
     )
     
-    key_message = st.text_area("핵심 메시지", placeholder="이 프로젝트에서 가장 강조하고 싶은 메시지를 입력하세요.")
+    # 2-3. 키 메시지 중심 방향 선택
+    st.markdown("#### 2-3. 키 메시지 중심 방향 선택")
+    key_message_direction = st.selectbox(
+        "핵심 메시지 방향을 선택하세요:",
+        [
+            "A. Vision 중심형 - 이 건축이 실현할 미래를 제시하는 선언적 서술",
+            "B. Problem-Solution형 - 이 문제가 있었고, 이렇게 해결했다는 설계 전략 중심",
+            "C. User Journey형 - 사용자의 여정은 어떻게 변화하는가? 사용자 감정·동선 중심",
+            "D. Context-Driven형 - 이 땅, 이 장소에서의 필연성은? Site 중심 서술",
+            "E. Symbolic Message형 - 이 건물은 어떤 메시지를 담고 있는가? 감정적 울림 강조"
+        ]
+    )
+    
+    # 2-4. 건축적 가치 우선순위 선택
+    st.markdown("#### 2-4. 건축적 가치 우선순위 선택")
+    architectural_value = st.selectbox(
+        "건축적 가치 우선순위를 선택하세요:",
+        [
+            "A. 장소성 우선 - Site-specific한 고유성 추구, 맥락적 건축",
+            "B. 기능성 우선 - 사용자 니즈와 효율성 중심, 합리적 건축",
+            "C. 미학성 우선 - 아름다움과 감동 추구, 조형적 건축",
+            "D. 지속성 우선 - 환경과 미래 세대 고려, 친환경 건축",
+            "E. 사회성 우선 - 공동체와 소통 중심, 공공적 건축",
+            "F. 혁신성 우선 - 새로운 가능성 탐구, 실험적 건축"
+        ]
+    )
+    
+    # 2-5. 건축적 내러티브 전개 방식 선택
+    st.markdown("#### 2-5. 건축적 내러티브 전개 방식 선택")
+    narrative_structure = st.selectbox(
+        "내러티브 전개 방식을 선택하세요:",
+        [
+            "A. 형태 생성 과정형 - 이 형태는 어떻게 탄생했는가? 대지→매스→공간→디테일 순차 전개",
+            "B. 공간 경험 여정형 - 사용자는 어떤 공간을 경험하는가? 진입→이동→머무름→떠남의 시퀀스",
+            "C. 기능 조직 논리형 - 프로그램들이 어떻게 조직되는가? 기능분석→배치전략→공간구성",
+            "D. 구조 시스템형 - 건물은 어떤 원리로 서 있는가? 구조체→공간→형태의 통합적 설명",
+            "E. 환경 대응 전략형 - 자연과 건축이 어떻게 만나는가? 미기후→배치→형태→재료 연계",
+            "F. 문화적 해석형 - 전통과 현대가 어떻게 만나는가? 역사적 맥락→현대적 번역→공간화"
+        ]
+    )
+    
+    # 2-6. 강조할 설계 요소 선택 (복수 선택 가능)
+    st.markdown("#### 2-6. 강조할 설계 요소 선택 (복수 선택 가능)")
+    design_elements = st.multiselect(
+        "강조할 설계 요소를 선택하세요:",
+        [
+            "매스/형태 - 조형적 아름다움, 상징성으로 시각적 임팩트",
+            "공간 구성 - 동선, 기능 배치의 합리성으로 사용성 어필",
+            "친환경/지속가능 - 에너지 효율, 친환경 기술로 사회적 가치",
+            "기술/혁신 - 신기술 적용, 스마트 시스템으로 선진성 강조",
+            "경제성 - 건설비, 운영비 절감으로 실용성 어필",
+            "안전성 - 구조적 안정, 방재 계획으로 신뢰성 구축",
+            "문화/역사 - 지역성, 전통의 현대적 해석으로 정체성 강화",
+            "사용자 경험 - 편의성, 접근성, 쾌적성으로 만족도 제고"
+        ]
+    )
     
     # STEP 3: Narrative 생성
     st.subheader("STEP 3: Narrative 생성")
@@ -834,31 +865,68 @@ def render_claude_narrative_tab():
                     for h in st.session_state.cot_history
                 ])
                 
-                # Narrative 생성 프롬프트
+                # 선택된 옵션들을 프롬프트에 반영
+                # Narrative 생성 프롬프트를 소설처럼 감성적이고 몰입감 있게 개선
                 narrative_prompt = f"""
+당신은 건축설계 발표용 Narrative를 작성하는 소설가입니다. 
+기술적 분석이나 딱딱한 설명이 아닌, 소설처럼 감성적이고 몰입감 있는 스토리로 작성해주세요.
+
 프로젝트 정보:
 - 프로젝트명: {project_name}
 - 건물 유형: {building_type}
 - 건축주: {owner}
+- 발주처 특성: {owner_type}
 - 대지 위치: {site_location}
 - 대지 면적: {site_area}
-- 프로젝트 목표: {project_goal}
+- 건물 규모: {building_scale}
+- 주변 환경: {surrounding_env}
+- 지역적 맥락: {regional_context}
 
-Narrative 요구사항:
-- 스타일: {narrative_style}
-- 대상 청중: {', '.join(target_audience)}
-- 핵심 메시지: {key_message}
+Narrative 방향 설정:
+1. 감성/논리 비율: {emotion_logic_ratio}
+2. 서술 스타일: {narrative_tone}
+3. 키 메시지 방향: {key_message_direction}
+4. 건축적 가치 우선순위: {architectural_value}
+5. 내러티브 전개 방식: {narrative_structure}
+6. 강조 설계 요소: {', '.join(design_elements)}
 
 분석 결과:
 {analysis_summary}
 
-위 정보를 바탕으로 건축설계 발표용 Narrative를 생성해주세요.
-8개 섹션으로 구성하여 체계적이고 설득력 있는 Narrative를 작성해주세요.
+위 정보를 바탕으로 소설처럼 감성적이고 몰입감 있는 Narrative를 작성해주세요.
+
+중요한 지시사항:
+1. 소설처럼 감성적이고 몰입감 있는 서술
+2. "이 땅에서 발견한 세 가지 진실" 같은 스토리적 접근
+3. 구체적인 공간 경험과 사용자 여정을 소설처럼 묘사
+4. 건축적 해답을 스토리로 풀어내기
+5. 청중의 감정을 움직이는 서술 방식 사용
+6. 기술적 설명이 아닌 감성적 서술
+
+예시 스타일:
+- "첫 번째 진실 - 자연의 품: 북측 공원과 남측 한강이 품어주는 이 땅은..."
+- "자연이 건네는 설계 언어: 북측 공원의 속삭임 '경계를 허물어라...'"
+- "100년 헤리티지, 100년 비전: 과거를 품다, 현재를 살다, 미래를 열다"
+- "땅에서 자란 나무처럼: 뿌리(Root) - 땅에서 자란 네 그루 나무"
+- "매 순간이 특별한 여정: 아침 7시 - 새로운 시작"
+
+다음 구조로 소설처럼 감성적이고 몰입감 있는 Narrative를 작성해주세요:
+
+Part 1.  프로젝트 기본 정보
+Part 2.  Core Story: 땅이 말하는 미래
+Part 3. 📍 땅이 주는 답: The Rooted Future
+Part 4. 🏢 {owner}이 꿈꾸는 미래
+Part 5. 💡 [컨셉명] 컨셉의 건축적 구현
+Part 6. ️ 건축적 해답: 네 가지 핵심 전략
+Part 7. 🎯 공간 시나리오: 하루의 여정
+Part 8. 🎯 결론: 왜 이 제안인가?
+
+소설처럼 감성적이고 몰입감 있는 스토리텔링으로 작성해주세요.
 """
                 
-                # Claude API 호출
-                from agent_executor import execute_agent
-                narrative_result = execute_agent(narrative_prompt)
+                # Narrative 생성 함수 호출
+                from agent_executor import generate_narrative
+                narrative_result = generate_narrative(narrative_prompt)
                 
                 # 결과 표시
                 st.success("✅ Narrative 생성 완료!")
@@ -876,7 +944,7 @@ Narrative 요구사항:
             except Exception as e:
                 st.error(f"❌ Narrative 생성 중 오류가 발생했습니다: {e}")
     
-    # STEP 4: 피드백 및 수정 (향후 구현)
+    # STEP 4: 피드백 및 수정
     st.subheader("STEP 4: 피드백 및 수정")
     st.info("🔄 생성된 Narrative에 대한 피드백을 받아 수정하는 기능은 향후 구현 예정입니다.")
 
@@ -970,7 +1038,7 @@ def render_midjourney_prompt_tab():
     """)
 
 def render_report_generation_tab():
-    """보고서 생성 탭 렌더링"""
+    """보고서 생성 탭 렌더링 - 순서 변경"""
     st.header("📄 보고서 생성")
     
     if not st.session_state.get('cot_history'):
@@ -1004,281 +1072,101 @@ def render_report_generation_tab():
         'project_goal': user_inputs.get('project_goal', '')
     }
     
-    # 보고서 유형 선택
+    # 1. 문서 보고서 (맨 상단)
+    st.subheader("📄 문서 보고서")
     report_type = st.selectbox(
         "보고서 유형",
-        ["전체 분석 보고서", "요약 보고서", "전문가 보고서", "클라이언트 보고서"]
+        ["전체 분석 보고서", "요약 보고서", "전문가 보고서", "클라이언트 보고서"],
+        key="report_type_generation"
     )
     
-    # 추가 옵션
-    include_charts = st.checkbox("📊 차트 및 다이어그램 포함", value=True)
-    include_recommendations = st.checkbox("💡 권장사항 포함", value=True)
-    include_appendix = st.checkbox("📋 부록 포함", value=False)
+    include_charts = st.checkbox(" 차트 포함", value=True, key="charts_generation")
+    include_recommendations = st.checkbox("💡 권장사항 포함", value=True, key="recommendations_generation")
+    include_appendix = st.checkbox("📋 부록 포함", value=False, key="appendix_generation")
     
-    # 보고서 생성 버튼들
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # 웹페이지 생성 및 다운로드
-        st.markdown("#### 🌐 웹페이지 생성")
-        from webpage_generator import create_webpage_download_button
-        create_webpage_download_button(analysis_results, project_info, show_warning=False)
-    
-    with col2:
-        # 전체 분석 보고서
-        st.markdown("#### 📋 전체 분석 보고서")
-        if st.button("📄 전체 보고서 생성", key="full_report_btn"):
-            st.markdown("#### 📋 프로젝트 기본 정보")
-            project_info_text = f"""
-            **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
-            **건축주**: {user_inputs.get('owner', 'N/A')}
-            **대지위치**: {user_inputs.get('site_location', 'N/A')}
-            **대지면적**: {user_inputs.get('site_area', 'N/A')}
-            **건물용도**: {user_inputs.get('building_type', 'N/A')}
-            **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
-            """
-            st.markdown(project_info_text)
-            
-            # 전체 분석 결과를 output_structure 기반 동적 탭으로 표시
-            st.markdown("#### 📊 전체 분석 결과")
-            
-            # DSL에서 output_structure 가져오기
-            from prompt_loader import load_prompt_blocks
-            blocks = load_prompt_blocks()
-            extra_blocks = blocks["extra"]
-            
-            # 모든 단계의 output_structure 수집
-            all_output_structures = set()
-            for block in extra_blocks:
-                if "content_dsl" in block and "output_structure" in block["content_dsl"]:
-                    for structure in block["content_dsl"]["output_structure"]:
-                        all_output_structures.add(structure)
-            
-            if all_output_structures:
-                # output_structure 기반 동적 탭 생성
-                result_tabs = st.tabs(list(all_output_structures))
+    if st.button("📄 보고서 생성", type="primary", key="generate_report_generation"):
+        with st.spinner("보고서를 생성하고 있습니다..."):
+            try:
+                # 보고서 내용 생성
+                from report_generator import generate_report_content, generate_pdf_report, generate_word_report
+                report_content = generate_report_content(
+                    report_type, 
+                    include_charts, 
+                    include_recommendations, 
+                    include_appendix
+                )
                 
-                for i, (tab, structure_name) in enumerate(zip(result_tabs, all_output_structures)):
-                    with tab:
-                        st.markdown(f"### {structure_name}")
-                        
-                        # 각 단계별로 해당 구조에 맞는 내용 표시
-                        for j, history in enumerate(st.session_state.cot_history):
-                            st.markdown(f"####  단계 {j+1}: {history.get('step', f'단계 {j+1}')}")
-                            
-                            # 구조별로 다른 표시 방식
-                            if "매트릭스" in structure_name or "표" in structure_name:
-                                st.markdown("##### 📊 구조화된 데이터")
-                                st.markdown("| 항목 | 내용 | 비고 |")
-                                st.markdown("|------|------|------|")
-                                st.markdown("| 분석 단계 | " + history.get('step', f'단계 {j+1}') + " | |")
-                                if history.get('summary'):
-                                    st.markdown("| 요약 | " + history['summary'][:100] + "... | |")
-                                if history.get('insight'):
-                                    st.markdown("| 인사이트 | " + history['insight'][:100] + "... | |")
-                            
-                            elif "요약" in structure_name:
-                                st.markdown("##### 📝 요약 내용")
-                                if history.get('summary'):
-                                    st.markdown(history['summary'])
-                                else:
-                                    st.markdown(history.get('result', '')[:500] + ("..." if len(history.get('result', '')) > 500 else ""))
-                            
-                            elif "다이어그램" in structure_name:
-                                st.markdown("##### 🎨 구조 다이어그램")
-                                st.info("분석 결과 구조 다이어그램이 여기에 표시됩니다.")
-                                st.markdown("📊 " + history.get('step', f'단계 {j+1}') + " 분석 구조")
-                            
-                            elif "우선순위" in structure_name:
-                                st.markdown("##### ⭐ 중요도별 우선순위")
-                                st.markdown("1. **최우선**: " + history.get('step', f'단계 {j+1}') + " 핵심 내용")
-                                if history.get('insight'):
-                                    st.markdown("2. **고우선**: " + history['insight'][:100] + "...")
-                                if history.get('summary'):
-                                    st.markdown("3. **중우선**: " + history['summary'][:100] + "...")
-                            
-                            else:
-                                # 기본 표시
-                                st.markdown("##### 📋 분석 내용")
-                                result_text = history.get('result', '')
-                                st.write(result_text[:800] + ("..." if len(result_text) > 800 else ""))
-                            
-                            # 상세 내용 (접을 수 있는 형태)
-                            with st.expander(f" {history.get('step', f'단계 {j+1}')} 상세 내용"):
-                                st.write(history.get('result', ''))
-                            
-                            st.markdown("---")
-            else:
-                # 기본 탭 (output_structure가 없는 경우)
-                result_tabs = st.tabs(["📋 상세 분석", "💡 핵심 인사이트", "📊 요약"])
+                # 다운로드 버튼들
+                col_a, col_b, col_c = st.columns(3)
                 
-                with result_tabs[0]:
-                    # 각 단계별 결과를 구조화된 형태로 표시
-                    for i, history in enumerate(st.session_state.cot_history):
-                        st.markdown(f"###  단계 {i+1}: {history.get('step', f'단계 {i+1}')}")
-                        
-                        # 분석 개요
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.info(f"**분석 단계**: {history.get('step', f'단계 {i+1}')}")
-                        with col2:
-                            st.success("**분석 상태**: ✅ 완료")
-                        
-                        # 주요 내용
-                        st.markdown("#### 🔍 주요 내용")
-                        st.write(history.get('result', '')[:800] + ("..." if len(history.get('result', '')) > 800 else ""))
-                        
-                        # 상세 내용 (접을 수 있는 형태)
-                        with st.expander(f" {history.get('step', f'단계 {i+1}')} 상세 내용"):
-                            st.write(history.get('result', ''))
-                        
-                        st.markdown("---")
-                
-                with result_tabs[1]:
-                    st.markdown("### 💡 전체 분석 핵심 인사이트")
-                    st.success("🔍 모든 분석 단계에서 도출된 핵심 인사이트:")
-                    
-                    # 각 단계별 핵심 인사이트 요약
-                    for i, history in enumerate(st.session_state.cot_history):
-                        st.markdown(f"####  단계 {i+1}: {history.get('step', f'단계 {i+1}')}")
-                        if history.get('insight'):
-                            st.markdown(f"**핵심 인사이트**: {history['insight']}")
-                        elif history.get('summary'):
-                            st.markdown(f"**핵심 내용**: {history['summary'][:200]}{'...' if len(history['summary']) > 200 else ''}")
-                        else:
-                            st.markdown(f"**핵심 내용**: {history.get('result', '')[:200]}{'...' if len(history.get('result', '')) > 200 else ''}")
-                        st.markdown("---")
-                
-                with result_tabs[2]:
-                    st.markdown("### 📊 전체 분석 요약")
-                    
-                    # 전체 분석 개요
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.info(f"**총 분석 단계**: {len(st.session_state.cot_history)}개")
-                    with col2:
-                        st.success("**전체 분석 상태**: ✅ 완료")
-                    
-                    # 각 단계별 요약
-                    for i, history in enumerate(st.session_state.cot_history):
-                        st.markdown(f"**단계 {i+1}**: {history.get('step', f'단계 {i+1}')}")
-                        if history.get('summary'):
-                            st.markdown(f"**요약**: {history['summary'][:150]}{'...' if len(history['summary']) > 150 else ''}")
-                        else:
-                            st.markdown(f"**결과 요약**: {history.get('result', '')[:150]}{'...' if len(history.get('result', '')) > 150 else ''}")
-                        st.markdown("---")
-    
-    with col3:
-        # 기존 보고서 생성 기능
-        st.markdown("#### 📄 문서 보고서")
-        if st.button("📄 보고서 생성", type="primary"):
-            with st.spinner("보고서를 생성하고 있습니다..."):
-                try:
-                    # 보고서 내용 생성
-                    report_content = generate_report_content(
-                        report_type, 
-                        include_charts, 
-                        include_recommendations, 
-                        include_appendix
+                with col_a:
+                    st.download_button(
+                        label="📄 TXT 다운로드",
+                        data=report_content,
+                        file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.txt",
+                        mime="text/plain"
                     )
-                    
-                    # 다운로드 버튼들
-                    col_a, col_b, col_c = st.columns(3)
-                    
-                    with col_a:
+                
+                with col_b:
+                    try:
+                        pdf_data = generate_pdf_report(report_content, st.session_state)
                         st.download_button(
-                            label="📄 TXT 다운로드",
-                            data=report_content,
-                            file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.txt",
-                            mime="text/plain"
+                            label="📄 PDF 다운로드",
+                            data=pdf_data,
+                            file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.pdf",
+                            mime="application/pdf"
                         )
-                    
-                    with col_b:
-                        try:
-                            pdf_data = generate_pdf_report(report_content, st.session_state)
-                            st.download_button(
-                                label="📄 PDF 다운로드",
-                                data=pdf_data,
-                                file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.pdf",
-                                mime="application/pdf"
-                            )
-                        except Exception as e:
-                            st.error(f"PDF 생성 오류: {e}")
-                    
-                    with col_c:
-                        try:
-                            word_data = generate_word_report(report_content, st.session_state)
-                            st.download_button(
-                                label="📄 Word 다운로드",
-                                data=word_data,
-                                file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            )
-                        except Exception as e:
-                            st.error(f"Word 생성 오류: {e}")
-                    
-                    # 보고서 내용 미리보기
-                    st.subheader("📋 보고서 미리보기")
-                    st.markdown(report_content[:2000] + ("..." if len(report_content) > 2000 else ""))
-                    
-                except Exception as e:
-                    st.error(f"❌ 보고서 생성 중 오류가 발생했습니다: {e}")
-
-def generate_report_content(report_type, include_charts, include_recommendations, include_appendix):
-    """보고서 내용 생성"""
-    user_inputs = get_user_inputs()
+                    except Exception as e:
+                        st.error(f"PDF 생성 오류: {e}")
+                
+                with col_c:
+                    try:
+                        word_data = generate_word_report(report_content, st.session_state)
+                        st.download_button(
+                            label="📄 Word 다운로드",
+                            data=word_data,
+                            file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
+                    except Exception as e:
+                        st.error(f"Word 생성 오류: {e}")
+                
+                # 보고서 내용 미리보기
+                st.subheader("📋 보고서 미리보기")
+                st.markdown(report_content[:2000] + ("..." if len(report_content) > 2000 else ""))
+                
+            except Exception as e:
+                st.error(f"❌ 보고서 생성 중 오류가 발생했습니다: {e}")
     
-    # 기본 정보
-    report_content = f"""
-# {user_inputs.get('project_name', '프로젝트')} 분석 보고서
-
-## 📋 프로젝트 기본 정보
-- **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
-- **건축주**: {user_inputs.get('owner', 'N/A')}
-- **대지위치**: {user_inputs.get('site_location', 'N/A')}
-- **대지면적**: {user_inputs.get('site_area', 'N/A')}
-- **건물용도**: {user_inputs.get('building_type', 'N/A')}
-- **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
-
-## 📊 분석 결과
-"""
+    st.markdown("---")
     
-    # 분석 결과 추가
+    # 2. 웹페이지 생성 (중간)
+    st.subheader(" 웹페이지 생성")
+    from webpage_generator import create_webpage_download_button
+    create_webpage_download_button(analysis_results, project_info, show_warning=False)
+    
+    st.markdown("---")
+    
+    # 3. 분석 보고서 (맨 하단)
+    st.subheader("📊 분석 보고서")
+    st.markdown("#### 📋 프로젝트 기본 정보")
+    project_info_text = f"""
+    **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
+    **건축주**: {user_inputs.get('owner', 'N/A')}
+    **대지위치**: {user_inputs.get('site_location', 'N/A')}
+    **대지면적**: {user_inputs.get('site_area', 'N/A')}
+    **건물용도**: {user_inputs.get('building_type', 'N/A')}
+    **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
+    """
+    st.markdown(project_info_text)
+    
+    # 분석 결과 요약
+    st.markdown("#### 📊 분석 결과 요약")
     if st.session_state.get('cot_history'):
         for i, history in enumerate(st.session_state.cot_history, 1):
-            report_content += f"""
-### {i}. {history['step']}
-
-**요약**: {history.get('summary', '')}
-
-**인사이트**: {history.get('insight', '')}
-
-**상세 분석**:
-{history.get('result', '')}
-
----
-"""
-    
-    # 추가 섹션들
-    if include_charts:
-        report_content += """
-## 📊 차트 및 다이어그램
-(차트 및 다이어그램이 여기에 포함됩니다)
-"""
-    
-    if include_recommendations:
-        report_content += """
-## 💡 권장사항
-분석 결과를 바탕으로 한 권장사항이 여기에 포함됩니다.
-"""
-    
-    if include_appendix:
-        report_content += """
-## 📋 부록
-추가 자료 및 참고문헌이 여기에 포함됩니다.
-"""
-    
-    return report_content
+            st.markdown(f"**{i}. {history.get('step', f'단계 {i}')}**")
+            st.markdown(f"요약: {history.get('summary', '')}")
+            st.markdown("---")
 
 def main():
     """메인 함수"""

@@ -371,7 +371,8 @@ def create_webpage_download_button(analysis_results: List[Dict], project_info: D
         data=html_content,
         file_name=f"{project_info.get('project_name', '분석보고서')}_웹페이지.html",
         mime="text/html",
-        help="Gamma 스타일의 반응형 웹페이지를 다운로드합니다."
+        help="Gamma 스타일의 반응형 웹페이지를 다운로드합니다.",
+        key=f"webpage_download_{project_info.get('project_name', 'default')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     )
     
     # 미리보기 표시
