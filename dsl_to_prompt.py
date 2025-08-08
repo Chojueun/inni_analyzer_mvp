@@ -1,4 +1,4 @@
-from utils_pdf_vector import search_pdf_chunks
+from utils_pdf_vector_simple import search_pdf_chunks
 from search_helper import search_web_serpapi
 
 def convert_dsl_to_prompt(

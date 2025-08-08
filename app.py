@@ -13,7 +13,7 @@ from user_state import (
 from utils import extract_summary, extract_insight
 from summary_generator import summarize_pdf, extract_site_analysis_fields
 from user_state import append_step_history
-from utils_pdf_vector import save_pdf_chunks_to_chroma
+from utils_pdf_vector_simple import save_pdf_chunks_to_chroma
 from init_dspy import *
 from agent_executor import (
     run_requirement_table,
@@ -259,15 +259,11 @@ if st.session_state.get('uploaded_pdf'):
     else:
         st.sidebar.warning("⚠️ PDF 요약 처리 중...")
     
-    # 벡터 DB 상태 확인
-    try:
-        from utils_pdf_vector import collection
-        if collection:
-            st.sidebar.success("✅ 벡터 DB 연결 완료")
-        else:
-            st.sidebar.error("❌ 벡터 DB 연결 실패")
-    except:
-        st.sidebar.error("❌ 벡터 DB 초기화 실패")
+    # PDF 처리 상태 확인
+    if st.session_state.get("pdf_chunks"):
+        st.sidebar.success("✅ PDF 텍스트 저장 완료")
+    else:
+        st.sidebar.warning("⚠️ PDF 텍스트 처리 중...")
 
 
 
