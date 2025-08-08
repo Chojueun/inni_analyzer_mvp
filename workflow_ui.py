@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit as st
 import json
 import re
 import time
@@ -16,6 +17,7 @@ from agent_executor import (
     run_precedent_comparison,
     run_strategy_recommendation,
 )
+from utils import extract_summary, extract_insight
 
 def execute_claude_analysis(prompt, description):
     """Claude 분석 실행 함수 - agent_executor의 execute_agent 사용"""
@@ -30,11 +32,15 @@ def render_analysis_workflow():
     """분석 워크플로우 렌더링"""
     st.header("🔍 분석 워크플로우")
     
+    # 사이드바에 전체 상태 정보 추가
+    st.sidebar.markdown("### 📊 전체 상태")
+    st.sidebar.write(f"워크플로우 단계: {len(st.session_state.get('workflow_steps', []))}")
+    st.sidebar.write(f"현재 단계 인덱스: {st.session_state.get('current_step_index', 'N/A')}")
+    st.sidebar.write(f"완료된 단계: {len(st.session_state.get('cot_history', []))}")
+    st.sidebar.write(f"편집 가능한 단계: {len(st.session_state.get('editable_steps', []))}")
+    
     # 사용자 입력 가져오기
     user_inputs = get_user_inputs()
-    
-    # PDF 업로드 상태 확인
-    uploaded_pdf = st.session_state.get('uploaded_pdf')
     
     # 1단계: 목적과 용도 선택
     st.subheader("📋 1단계: 분석 목적과 용도 선택")
@@ -47,7 +53,7 @@ def render_analysis_workflow():
     selected_purpose = st.selectbox(
         "🏗️ 건물 용도 선택",
         purpose_options,
-        key="selected_purpose"
+        key="selected_purpose_workflow"
     )
     
     # 선택된 용도에 따른 목적 옵션 표시
@@ -59,7 +65,7 @@ def render_analysis_workflow():
         selected_objectives = st.multiselect(
             " 분석 목적 선택 (복수 선택 가능)",
             objective_options,
-            key="selected_objectives"
+            key="selected_objectives_workflow"
         )
         
         # 선택된 목적들을 ObjectiveType으로 변환
@@ -99,24 +105,24 @@ def render_analysis_workflow():
                             st.caption("🟢 선택 단계")
                     
                     with col_b:
-                        if st.button("❌ 제거", key=f"remove_{step.id}"):
+                        if st.button("❌ 제거", key=f"remove_{step.id}_workflow"):
                             st.session_state.editable_steps.pop(i)
                             st.rerun()
                     
                     with col_c:
                         if i > 0:
-                            if st.button("⬆️ 위로", key=f"up_{step.id}"):
+                            if st.button("⬆️ 위로", key=f"up_{step.id}_workflow"):
                                 st.session_state.editable_steps[i], st.session_state.editable_steps[i-1] = \
                                     st.session_state.editable_steps[i-1], st.session_state.editable_steps[i]
                                 st.rerun()
                         if i < len(st.session_state.editable_steps) - 1:
-                            if st.button("⬇️ 아래로", key=f"down_{step.id}"):
+                            if st.button("⬇️ 아래로", key=f"down_{step.id}_workflow"):
                                 st.session_state.editable_steps[i], st.session_state.editable_steps[i+1] = \
                                     st.session_state.editable_steps[i+1], st.session_state.editable_steps[i]
                                 st.rerun()
             
             # 분석 시작 버튼
-            if st.button("🚀 분석 시작", key="start_analysis"):
+            if st.button("🚀 분석 시작", key="start_analysis_workflow"):
                 # 필수 정보 확인
                 missing_fields = []
                 for field in ["project_name", "building_type", "site_location", "owner", "site_area", "project_goal"]:
@@ -133,16 +139,27 @@ def render_analysis_workflow():
                     st.error("❌ PDF 처리가 완료되지 않았습니다. PDF를 다시 업로드해주세요.")
                     st.stop()
                 
-                # 분석 단계 초기화 (current_step_index는 이미 설정되어 있으면 유지)
-                if 'current_step_index' not in st.session_state:
-                    st.session_state.current_step_index = 0
+                # 분석 단계 초기화
+                st.session_state.current_step_index = 0
                 st.session_state.cot_history = []
                 st.session_state.workflow_steps = st.session_state.editable_steps
-                st.success("✅ 분석이 시작되었습니다! 다음 단계로 진행하세요.")
+                st.session_state.current_step_outputs = {}
+                
+                # 디버깅 정보 추가
+                st.success("✅ 분석이 시작되었습니다!")
+                st.info(f"📋 총 {len(st.session_state.workflow_steps)}개 단계가 설정되었습니다.")
+                st.info(f"🔍 첫 번째 단계: {st.session_state.workflow_steps[0].title}")
+                
+                # 사이드바에 상태 표시
+                st.sidebar.success("✅ 분석 시작됨")
+                st.sidebar.write(f"총 단계: {len(st.session_state.workflow_steps)}")
+                st.sidebar.write(f"현재 단계: 0")
+                st.sidebar.write(f"첫 번째 단계: {st.session_state.workflow_steps[0].title}")
+                
                 st.rerun()
     
     # 3단계: 단계별 분석 진행
-    if st.session_state.get('workflow_steps'):
+    if st.session_state.get('workflow_steps') and len(st.session_state.workflow_steps) > 0:
         st.subheader("📋 3단계: 단계별 분석 진행")
         
         workflow_steps = st.session_state.workflow_steps
@@ -150,15 +167,15 @@ def render_analysis_workflow():
         
         # 디버깅 정보 추가
         st.sidebar.markdown("### 🔍 디버깅 정보")
+        st.sidebar.write(f"워크플로우 단계 존재: ✅")
         st.sidebar.write(f"현재 단계 인덱스: {current_step_index}")
         st.sidebar.write(f"총 단계 수: {len(workflow_steps)}")
         st.sidebar.write(f"완료된 단계 수: {len(st.session_state.cot_history)}")
-        if current_step_index < len(workflow_steps):
-            st.sidebar.write(f"현재 단계: {workflow_steps[current_step_index].title}")
-        st.sidebar.write(f"분석 완료 상태: {st.session_state.get('current_step_outputs', {}).get('saved', False)}")
         
         if current_step_index < len(workflow_steps):
             current_step = workflow_steps[current_step_index]
+            st.sidebar.write(f"현재 단계: {current_step.title}")
+            st.sidebar.write(f"분석 완료 상태: {st.session_state.get('current_step_outputs', {}).get('saved', False)}")
             
             st.markdown(f"### 🔍 현재 단계: {current_step.title}")
             st.info(f"설명: {current_step.description}")
@@ -277,35 +294,27 @@ def render_analysis_workflow():
                                         st.info("분석 결과가 준비되지 않았습니다.")
                         else:
                             # 기본 4개 탭 (fallback)
-                            tab1, tab2, tab3, tab4 = st.tabs(["📊 요구사항", "🧠 AI 추론", "🧾 사례비교", "✅ 전략제언"])
+                            tab1, tab2, tab3, tab4 = st.tabs([" 요구사항", " AI 추론", " 사례비교", "✅ 전략제언"])
                             
                             with tab1:
                                 st.markdown("#### 📊 요구사항 정리표")
-                                for history in st.session_state.cot_history:
-                                    st.markdown(f"**{history.get('step', '')}**")
-                                    st.markdown(history.get('result', '')[:300] + "...")
-                                    st.markdown("---")
+                                if "requirement_table" in results:
+                                    st.markdown(results["requirement_table"])
                             
                             with tab2:
                                 st.markdown("#### 🧠 AI 추론 해설")
-                                for history in st.session_state.cot_history:
-                                    st.markdown(f"**{history.get('step', '')}**")
-                                    st.markdown(history.get('result', '')[:300] + "...")
-                                    st.markdown("---")
+                                if "ai_reasoning" in results:
+                                    st.markdown(results["ai_reasoning"])
                             
                             with tab3:
                                 st.markdown("#### 🧾 유사 사례 비교")
-                                for history in st.session_state.cot_history:
-                                    st.markdown(f"**{history.get('step', '')}**")
-                                    st.markdown(history.get('result', '')[:300] + "...")
-                                    st.markdown("---")
+                                if "precedent_comparison" in results:
+                                    st.markdown(results["precedent_comparison"])
                             
                             with tab4:
                                 st.markdown("#### ✅ 전략적 제언 및 시사점")
-                                for history in st.session_state.cot_history:
-                                    st.markdown(f"**{history.get('step', '')}**")
-                                    st.markdown(history.get('result', '')[:300] + "...")
-                                    st.markdown("---")
+                                if "strategy_recommendation" in results:
+                                    st.markdown(results["strategy_recommendation"])
                         
                         # 전체 결과를 cot_history에 저장
                         if output_structure:
@@ -347,11 +356,148 @@ def render_analysis_workflow():
                         
                         st.success("✅ 분석이 완료되었습니다!")
                 
-                # 진행 상황 표시 (분석 완료 후) - 중복 버튼 제거
+                # 진행 상황 표시 (분석 완료 후)
                 if st.session_state.get('current_step_outputs', {}).get("saved"):
                     st.info("✅ 이 단계의 분석이 완료되었습니다.")
                     
-                    # 다음 단계 버튼 추가 (분석 완료 후에도 표시)
+                    # 피드백 시스템 추가
+                    st.markdown("---")
+                    st.markdown("### 💬 분석 결과 피드백 및 수정")
+                    
+                    # 피드백 입력
+                    feedback_input = st.text_area(
+                        "분석 결과에 대한 피드백이나 수정 요청을 입력하세요:",
+                        placeholder="예: 이 부분을 더 자세히 분석해주세요, 다른 관점도 제시해주세요, 표 구조를 바꿔주세요 등",
+                        key=f"feedback_input_{current_step.id}"
+                    )
+                    
+                    feedback_type = st.selectbox(
+                        "피드백 유형:",
+                        ["추가 분석 요청", "수정 요청", "다른 관점 제시", "구조 변경", "기타"],
+                        key=f"feedback_type_{current_step.id}"
+                    )
+                    
+                    if st.button("💬 피드백 제출", key=f"submit_feedback_{current_step.id}"):
+                        if feedback_input.strip():
+                            with st.spinner("피드백을 처리하고 있습니다..."):
+                                try:
+                                    # 피드백 처리 프롬프트 생성
+                                    current_results = st.session_state.current_step_outputs
+                                    original_result = current_results.get("original_result", "")
+                                    if not original_result:
+                                        # 원본 결과가 없으면 현재 결과를 원본으로 저장
+                                        original_result = "\n\n".join([
+                                            f"**{key}**: {value}" 
+                                            for key, value in current_results.items() 
+                                            if key != "saved" and key != "original_result" and key != "updated_result" and key != "feedback_applied"
+                                        ])
+                                        st.session_state.current_step_outputs["original_result"] = original_result
+                                    
+                                    feedback_prompt = f"""
+기존 분석 결과:
+{original_result}
+
+사용자 피드백:
+- 유형: {feedback_type}
+- 내용: {feedback_input}
+
+위 피드백을 바탕으로 기존 분석 결과를 수정하거나 보완해주세요.
+피드백의 의도를 정확히 파악하여 적절한 수정을 제시해주세요.
+
+요청사항:
+1. 기존 분석 결과를 바탕으로 사용자의 피드백을 반영한 수정된 분석을 제공해주세요.
+2. 피드백 유형에 따라 적절한 수정 방향을 제시해주세요:
+   - 추가 분석 요청: 더 자세한 분석이나 새로운 관점 추가
+   - 수정 요청: 기존 내용의 오류나 부족한 부분 수정
+   - 다른 관점 제시: 새로운 시각이나 접근 방법 제시
+   - 구조 변경: 분석 구조나 형식의 변경
+   - 기타: 특별한 요청사항에 따른 맞춤형 수정
+3. 수정된 결과는 기존 분석의 맥락을 유지하면서 피드백을 반영한 형태로 제공해주세요.
+"""
+                                    
+                                    # 피드백 처리 실행
+                                    from agent_executor import execute_agent
+                                    updated_result = execute_agent(feedback_prompt)
+                                    
+                                    # 업데이트된 결과 저장
+                                    st.session_state.current_step_outputs["updated_result"] = updated_result
+                                    st.session_state.current_step_outputs["feedback_applied"] = True
+                                    
+                                    # 피드백 히스토리에 추가
+                                    if "feedback_history" not in st.session_state:
+                                        st.session_state.feedback_history = []
+                                    
+                                    st.session_state.feedback_history.append({
+                                        "step": current_step.title,
+                                        "feedback_type": feedback_type,
+                                        "feedback_content": feedback_input,
+                                        "ai_response": updated_result,
+                                        "timestamp": time.time()
+                                    })
+                                    
+                                    # cot_history 업데이트 (마지막 항목을 업데이트된 결과로 교체)
+                                    if st.session_state.cot_history:
+                                        st.session_state.cot_history[-1]["result"] = updated_result
+                                        # utils에서 함수들을 안전하게 import하여 사용
+                                        try:
+                                            from utils import extract_summary, extract_insight
+                                            st.session_state.cot_history[-1]["summary"] = extract_summary(updated_result)
+                                            st.session_state.cot_history[-1]["insight"] = extract_insight(updated_result)
+                                        except Exception as summary_error:
+                                            st.warning(f"⚠️ 요약 생성 중 오류: {summary_error}")
+                                            st.session_state.cot_history[-1]["summary"] = updated_result[:300] + "..."
+                                            st.session_state.cot_history[-1]["insight"] = "요약 생성 실패"
+                                    
+                                    st.success("✅ 피드백이 처리되었습니다!")
+                                    st.info("📝 피드백이 적용된 결과가 아래에 표시됩니다.")
+                                    
+                                    # 피드백 적용된 결과 즉시 표시
+                                    st.markdown("#### ✨ 피드백 적용된 결과")
+                                    st.markdown(updated_result)
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ 피드백 처리 중 오류가 발생했습니다: {e}")
+                                    st.error("오류 상세 정보:")
+                                    st.error(f"- 함수: execute_agent")
+                                    st.error(f"- 매개변수: {len(feedback_prompt)} 문자")
+                                    st.error(f"- 피드백 유형: {feedback_type}")
+                                    st.error(f"- 피드백 내용: {feedback_input[:100]}...")
+                                    st.error(f"- 오류 타입: {type(e).__name__}")
+                                    st.error(f"- 오류 위치: {e.__traceback__.tb_lineno if hasattr(e, '__traceback__') else 'N/A'}")
+                        else:
+                            st.warning("⚠️ 피드백 내용을 입력해주세요.")
+                    
+                    # 피드백 히스토리 표시
+                    if st.session_state.get("feedback_history"):
+                        st.markdown("#### 📋 피드백 히스토리")
+                        for i, feedback in enumerate(st.session_state.feedback_history[-3:], 1):  # 최근 3개만 표시
+                            with st.expander(f"피드백 {i}: {feedback['feedback_type']}", expanded=False):
+                                st.markdown(f"**피드백**: {feedback['feedback_content']}")
+                                st.markdown(f"**AI 응답**: {feedback['ai_response'][:300]}...")
+                    
+
+                    
+                    # 다시 분석 버튼 (원본 결과로 되돌리기)
+                    if st.session_state.get('current_step_outputs', {}).get("feedback_applied"):
+                        if st.button("🔄 원본 결과로 되돌리기", key=f"revert_original_{current_step.id}"):
+                            st.session_state.current_step_outputs["feedback_applied"] = False
+                            if st.session_state.cot_history:
+                                # 원본 결과로 되돌리기
+                                original_result = st.session_state.current_step_outputs.get("original_result", "")
+                                if original_result:
+                                    try:
+                                        from utils import extract_summary, extract_insight
+                                        st.session_state.cot_history[-1]["result"] = original_result
+                                        st.session_state.cot_history[-1]["summary"] = extract_summary(original_result)
+                                        st.session_state.cot_history[-1]["insight"] = extract_insight(original_result)
+                                    except Exception as summary_error:
+                                        st.warning(f"⚠️ 원본 요약 생성 중 오류: {summary_error}")
+                                        st.session_state.cot_history[-1]["result"] = original_result
+                                        st.session_state.cot_history[-1]["summary"] = original_result[:300] + "..."
+                                        st.session_state.cot_history[-1]["insight"] = "원본 요약 생성 실패"
+                            st.rerun()
+                    
+                    # 다음 단계 버튼 추가
                     col1, col2 = st.columns([1, 1])
                     with col1:
                         if st.button("🔄 다시 분석", key=f"reanalyze_{current_step.id}_completed"):
@@ -369,66 +515,41 @@ def render_analysis_workflow():
                                 st.session_state.current_step_index = current_step_index + 1
                                 st.rerun()
                     
-                    # 완료된 단계들 표시
+                    # 완료된 단계들 표시 (피드백 적용 상태 포함)
                     if st.session_state.cot_history:
                         st.markdown("### 📋 완료된 단계들")
                         for i, history in enumerate(st.session_state.cot_history):
-                            with st.expander(f"✅ {i+1}. {history['step']}", expanded=False):
+                            # 피드백 적용 여부 확인
+                            feedback_applied = st.session_state.get('current_step_outputs', {}).get("feedback_applied", False)
+                            step_title = f"✅ {i+1}. {history['step']}"
+                            if feedback_applied and i == len(st.session_state.cot_history) - 1:
+                                step_title += " (피드백 적용됨)"
+                            
+                            with st.expander(step_title, expanded=False):
                                 st.markdown(f"**요약**: {history.get('summary', '')}")
                                 st.markdown(f"**인사이트**: {history.get('insight', '')}")
                                 st.markdown("---")
-                                st.markdown(history.get('result', '')[:500] + ("..." if len(history.get('result', '')) > 500 else ""))
+                                
+                                # 피드백이 적용된 경우 원본과 업데이트된 결과 모두 표시
+                                if feedback_applied and i == len(st.session_state.cot_history) - 1:
+                                    st.markdown("#### 📝 원본 결과")
+                                    original_result = st.session_state.current_step_outputs.get("original_result", "")
+                                    st.markdown(original_result[:500] + ("..." if len(original_result) > 500 else ""))
+                                    st.markdown("---")
+                                    st.markdown("#### ✨ 피드백 적용된 결과")
+                                    updated_result = st.session_state.current_step_outputs.get("updated_result", "")
+                                    st.markdown(updated_result[:500] + ("..." if len(updated_result) > 500 else ""))
+                                else:
+                                    st.markdown(history.get('result', '')[:500] + ("..." if len(history.get('result', '')) > 500 else ""))
                 else:
                     st.info("💡 위의 '분석 실행' 버튼을 클릭하여 분석을 시작하세요.")
-            
-            # 다음 단계 안내
-            if current_step_index < len(workflow_steps) - 1:
-                next_step = workflow_steps[current_step_index + 1]
-                st.info(f"다음 단계: {next_step.title}")
-            else:
-                st.success(" 모든 분석이 완료되었습니다!")
-                
-                # 전체 누적 분석 결과 표시
-                if st.session_state.cot_history:
-                    st.markdown("### 📊 전체 누적 분석 결과")
-                    
-                    # 전체 결과를 탭으로 표시
-                    result_tabs = st.tabs(["📋 전체 요약", "💡 핵심 인사이트", "📊 상세 결과"])
-                    
-                    with result_tabs[0]:
-                        st.markdown("#### 📋 전체 분석 요약")
-                        for i, history in enumerate(st.session_state.cot_history):
-                            st.markdown(f"**{i+1}. {history['step']}**")
-                            st.markdown(f"요약: {history.get('summary', '')}")
-                            st.markdown("---")
-                    
-                    with result_tabs[1]:
-                        st.markdown("#### 💡 핵심 인사이트")
-                        for i, history in enumerate(st.session_state.cot_history):
-                            st.markdown(f"**{i+1}. {history['step']}**")
-                            st.markdown(f"인사이트: {history.get('insight', '')}")
-                            st.markdown("---")
-                    
-                    with result_tabs[2]:
-                        st.markdown("#### 📊 상세 분석 결과")
-                        for i, history in enumerate(st.session_state.cot_history):
-                            with st.expander(f"{i+1}. {history['step']}", expanded=False):
-                                st.markdown(history.get('result', ''))
         
-        # 전체 진행 상황 표시
-        st.subheader(" 전체 진행 상황")
-        total_steps = len(workflow_steps)
-        completed_steps = len(st.session_state.cot_history)
-        progress = completed_steps / total_steps if total_steps > 0 else 0
-        
-        st.progress(progress, text=f"진행률: {completed_steps}/{total_steps} 단계 완료")
-        
-        # 완료된 단계들 표시
-        if st.session_state.cot_history:
-            st.markdown("### ✅ 완료된 단계들")
-            for i, history in enumerate(st.session_state.cot_history):
-                st.markdown(f"**{i+1}. {history['step']}**")
-                st.caption(f"요약: {history.get('summary', '')[:100]}...")
+        # 다음 단계 안내
+        if current_step_index < len(workflow_steps) - 1:
+            next_step = workflow_steps[current_step_index + 1]
+            st.info(f"다음 단계: {next_step.title}")
+        else:
+            st.success(" 모든 분석이 완료되었습니다!")
 
 def render_optimization_tab():
     """최적화 조건 탭 렌더링"""
@@ -624,28 +745,28 @@ def render_report_tab():
         
         with col2:
             st.markdown("#### 📄 Word 보고서")
-            if st.button("📄 Word 다운로드", type="primary", key="word_download_analysis"):
-                with st.spinner("Word 보고서를 생성하고 있습니다..."):
-                    try:
-                        from report_generator import generate_report_content, generate_word_report
-                        report_content = generate_report_content(
-                            "전체 분석 보고서", 
-                            True, 
-                            True, 
-                            False
-                        )
+        if st.button("📄 Word 다운로드", type="primary", key="word_download_analysis"):
+            with st.spinner("Word 보고서를 생성하고 있습니다..."):
+                try:
+                    from report_generator import generate_report_content, generate_word_report
+                    report_content = generate_report_content(
+                        "전체 분석 보고서", 
+                        True, 
+                        True, 
+                        False
+                    )
                         
-                        word_data = generate_word_report(report_content, st.session_state)
-                        st.download_button(
-                            label="📄 Word 다운로드",
-                            data=word_data,
-                            file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            key="word_download_analysis_final"
-                        )
-                        
-                    except Exception as e:
-                        st.error(f"Word 생성 오류: {e}")
+                    word_data = generate_word_report(report_content, st.session_state)
+                    st.download_button(
+                        label="📄 Word 다운로드",
+                        data=word_data,
+                        file_name=f"{st.session_state.get('project_name', '분석보고서')}_보고서.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key="word_download_analysis_final"
+                    )
+                    
+                except Exception as e:
+                    st.error(f"Word 생성 오류: {e}")
         
         # 전체 누적 분석 결과
         st.markdown("---")
@@ -705,7 +826,7 @@ def render_report_tab():
                             st.markdown(history.get('result', '')[:500] + "...")
         else:
             # 기본 탭 구조
-            tab1, tab2, tab3, tab4 = st.tabs(["📊 요구사항", "🧠 AI 추론", "�� 사례비교", "✅ 전략제언"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 요구사항", "🧠 AI 추론", "🧾 유사 사례비교", "✅ 전략제언"])
             
             with tab1:
                 st.markdown("#### 📊 요구사항 정리표")
@@ -758,7 +879,7 @@ def render_claude_narrative_tab():
         site_location = st.text_input("대지 위치", value=st.session_state.get('site_location', ''))
         owner = st.text_input("건축주", value=st.session_state.get('owner', ''))
         owner_type = st.selectbox("발주처 특성", ["공공기관", "민간기업", "개인", "교육기관", "의료기관", "문화기관"])
-    
+            
     with col2:
         site_area = st.text_input("대지 면적", value=st.session_state.get('site_area', ''))
         building_scale = st.text_input("건물 규모", placeholder="연면적, 층수 등")
@@ -1137,7 +1258,7 @@ def render_report_generation_tab():
                 
             except Exception as e:
                 st.error(f"❌ 보고서 생성 중 오류가 발생했습니다: {e}")
-    
+
     st.markdown("---")
     
     # 2. 웹페이지 생성 (중간)
