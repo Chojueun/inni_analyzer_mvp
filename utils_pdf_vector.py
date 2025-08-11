@@ -8,28 +8,36 @@ from typing import List, Dict, Optional
 
 # pysqlite3 관련 코드 완전 제거
 
-# 1. 임베딩 모델 로드 (가볍고 무료)
-try:
-    st.info("🔄 고급 PDF 검색 시스템 초기화 중...")
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-    st.success("✅ 임베딩 모델 로드 완료")
-except Exception as e:
-    st.error(f"❌ 임베딩 모델 로드 실패: {e}")
-    embedder = None
+# 전역 변수 초기화
+embedder = None
+collection = None
+chroma_client = None
 
-# 2. ChromaDB 인스턴스
-try:
-    chroma_client = chromadb.Client()
-    collection = chroma_client.get_or_create_collection("pdf_chunks")
-    st.success("✅ 벡터 데이터베이스 연결 완료")
-except Exception as e:
-    st.error(f"❌ ChromaDB 연결 실패: {e}")
-    collection = None
+def initialize_vector_system():
+    """벡터 시스템 초기화 - 필요할 때만 호출"""
+    global embedder, collection, chroma_client
+    
+    if embedder is not None and collection is not None:
+        return True
+    
+    try:
+        # 1. 임베딩 모델 로드 (가볍고 무료)
+        embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        
+        # 2. ChromaDB 인스턴스
+        chroma_client = chromadb.Client()
+        collection = chroma_client.get_or_create_collection("pdf_chunks")
+        
+        return True
+    except Exception as e:
+        st.error(f"❌ 벡터 시스템 초기화 실패: {e}")
+        return False
 
 def search_pdf_chunks(query: str, pdf_id: str = "default", top_k: int = 3) -> str:
     """고급 PDF 벡터 검색 함수 - 호환성 개선"""
     
-    if not embedder or not collection:
+    # 벡터 시스템 초기화
+    if not initialize_vector_system():
         st.warning("⚠️ 고급 검색 시스템 초기화 실패, 간단 검색으로 전환")
         return fallback_to_simple_search(query, pdf_id, top_k)
     
@@ -101,88 +109,95 @@ def fallback_to_simple_search(query: str, pdf_id: str, top_k: int) -> str:
         if results:
             return "\n---\n".join(results)
         else:
-            return "[간단 검색에서도 관련 정보를 찾을 수 없습니다]"
+            return "[관련 정보를 찾을 수 없습니다.]"
             
     except Exception as e:
-        return f"[검색 오류: {e}]"
+        st.error(f"❌ 간단 검색 오류: {e}")
+        return "[검색 오류가 발생했습니다.]"
 
 def pdf_to_chunks(pdf_path: str, chunk_size: int = 400) -> List[str]:
     """PDF를 청크로 분할"""
-    
-    if not os.path.exists(pdf_path):
-        st.error(f"❌ PDF 파일을 찾을 수 없습니다: {pdf_path}")
-        return []
-    
     try:
         doc = fitz.open(pdf_path)
-        all_chunks = []
+        chunks = []
         
-        for page_num, page in enumerate(doc):
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
             text = page.get_text()
-            if not text.strip():
-                continue
-                
-            # 문단 단위로 분할
-            paragraphs = text.split('\n\n')
-            for para in paragraphs:
-                para = para.strip()
-                if len(para) < 50:  # 너무 짧은 것 제외
-                    continue
-                    
-                # 청크 크기로 자르기
-                for i in range(0, len(para), chunk_size):
-                    chunk = para[i:i+chunk_size].strip()
-                    if len(chunk) > 50:
-                        all_chunks.append(chunk)
+            
+            # 텍스트를 문장 단위로 분할
+            sentences = text.split('. ')
+            
+            current_chunk = ""
+            for sentence in sentences:
+                if len(current_chunk) + len(sentence) < chunk_size:
+                    current_chunk += sentence + ". "
+                else:
+                    if current_chunk:
+                        chunks.append(current_chunk.strip())
+                    current_chunk = sentence + ". "
+            
+            # 마지막 청크 추가
+            if current_chunk:
+                chunks.append(current_chunk.strip())
         
         doc.close()
-        st.success(f"✅ PDF 분할 완료: {len(all_chunks)}개 청크")
-        return all_chunks
+        return chunks
         
     except Exception as e:
-        st.error(f"❌ PDF 분할 오류: {e}")
+        st.error(f"❌ PDF 청크 분할 오류: {e}")
         return []
 
 def save_pdf_chunks_to_chroma(pdf_path: str, pdf_id: str = "default") -> bool:
-    """PDF 청크를 ChromaDB에 저장 - 호환성 개선"""
-    
-    if not embedder or not collection:
-        st.warning("⚠️ 고급 저장 시스템 초기화 실패, 간단 저장으로 전환")
-        return fallback_to_simple_save(pdf_path, pdf_id)
-    
+    """PDF 청크를 ChromaDB에 저장"""
     try:
-        # PDF 청크 생성
+        # 벡터 시스템 초기화
+        if not initialize_vector_system():
+            st.warning("⚠️ 벡터 시스템 초기화 실패, 간단 저장으로 전환")
+            return fallback_to_simple_save(pdf_path, pdf_id)
+        
+        # PDF를 청크로 분할
         chunks = pdf_to_chunks(pdf_path)
+        
         if not chunks:
-            st.error("❌ PDF에서 텍스트를 추출할 수 없습니다.")
+            st.error("❌ PDF 청크 분할 실패")
             return False
         
-        # 임베딩 생성
-        st.info("🔄 PDF 벡터화 중...")
-        embeds = embedder.encode(chunks).tolist()
+        # 청크를 세션 상태에 저장 (간단 검색용)
+        if 'pdf_chunks' not in st.session_state:
+            st.session_state.pdf_chunks = {}
         
-        # 고유 ID 생성
-        ids = [f"{pdf_id}_{i}" for i in range(len(chunks))]
+        st.session_state.pdf_chunks[pdf_id] = "\n\n".join(chunks)
         
         # ChromaDB에 저장
-        collection.add(
-            ids=ids,
-            documents=chunks,
-            embeddings=embeds
-        )
-        
-        st.success(f"✅ 고급 PDF 벡터 저장 완료: {pdf_id} ({len(chunks)}개 청크)")
-        return True
+        try:
+            # 임베딩 생성
+            embeddings = embedder.encode(chunks)
+            
+            # ChromaDB에 저장
+            collection.add(
+                embeddings=embeddings.tolist(),
+                documents=chunks,
+                ids=[f"{pdf_id}_{i}" for i in range(len(chunks))]
+            )
+            
+            st.success(f"✅ PDF 청크 {len(chunks)}개가 ChromaDB에 저장되었습니다.")
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ ChromaDB 저장 실패: {e}")
+            return fallback_to_simple_save(pdf_path, pdf_id)
         
     except Exception as e:
-        st.error(f"❌ 고급 PDF 저장 오류: {e}")
-        return fallback_to_simple_save(pdf_path, pdf_id)
+        st.error(f"❌ PDF 저장 오류: {e}")
+        return False
 
 def fallback_to_simple_save(pdf_path: str, pdf_id: str) -> bool:
-    """고급 저장 실패 시 간단 저장으로 폴백"""
+    """ChromaDB 저장 실패 시 간단 저장으로 폴백"""
     try:
         # PDF 텍스트 추출
         text = extract_text_from_pdf(pdf_path)
+        
         if not text:
             return False
         
@@ -191,41 +206,34 @@ def fallback_to_simple_save(pdf_path: str, pdf_id: str) -> bool:
             st.session_state.pdf_chunks = {}
         
         st.session_state.pdf_chunks[pdf_id] = text
-        st.success(f"✅ 간단 PDF 텍스트 저장 완료: {len(text)} 문자")
+        st.success(f"✅ PDF가 간단 모드로 저장되었습니다.")
         return True
         
     except Exception as e:
-        st.error(f"❌ 간단 PDF 저장 실패: {e}")
+        st.error(f"❌ 간단 저장 실패: {e}")
         return False
 
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """PDF에서 텍스트 추출 (호환성)"""
+    """PDF에서 텍스트 추출"""
     try:
         doc = fitz.open(pdf_path)
         text = ""
-        for page in doc:
-            text += page.get_text()
+        
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            text += page.get_text() + "\n"
+        
         doc.close()
         return text
+        
     except Exception as e:
-        st.error(f"❌ PDF 텍스트 추출 실패: {e}")
+        st.error(f"❌ PDF 텍스트 추출 오류: {e}")
         return ""
 
 def get_pdf_summary(pdf_id: str = "default") -> str:
-    """PDF 요약 (호환성)"""
-    try:
-        if 'pdf_chunks' not in st.session_state or pdf_id not in st.session_state.pdf_chunks:
-            return "[PDF가 로드되지 않았습니다]"
-        
-        text = st.session_state.pdf_chunks[pdf_id]
-        
-        if len(text) > 1000:
-            summary = text[:1000] + "..."
-        else:
-            summary = text
-        
-        return summary
-        
-    except Exception as e:
-        st.error(f"❌ PDF 요약 실패: {e}")
-        return f"[요약 오류: {e}]"
+    """PDF 요약 정보 반환"""
+    if 'pdf_chunks' not in st.session_state or pdf_id not in st.session_state.pdf_chunks:
+        return "[PDF 정보가 없습니다.]"
+    
+    text = st.session_state.pdf_chunks[pdf_id]
+    return text[:1000] + "..." if len(text) > 1000 else text
