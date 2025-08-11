@@ -5,11 +5,77 @@ from dspy.teleprompt.bootstrap import BootstrapFewShot
 from dspy.predict.react import ReAct
 from init_dspy import *
 
-# --- 요구사항표 Signature & 함수
+# --- 요구사항표 Signature & ReAct 클래스
 class RequirementTableSignature(Signature):
     input = InputField(desc="분석 목표, PDF, 맥락 등")
     requirement_table = OutputField(desc="요구사항 정리 또는 핵심 요약 표 형식 출력. 항목별 구분 및 단위 포함")
 
+class RequirementTableReAct(ReAct):
+    def __init__(self):
+        super().__init__(RequirementTableSignature)
+
+# --- AI Reasoning Signature & ReAct 클래스
+class AIReasoningSignature(Signature):
+    input = InputField(desc="분석 목표, PDF, 맥락 등")
+    ai_reasoning = OutputField(desc="Chain-of-Thought 기반 추론 해설. 각 항목별 논리 전개 및 AI 추론 명시")
+
+class AIReasoningReAct(ReAct):
+    def __init__(self):
+        super().__init__(AIReasoningSignature)
+
+# --- 사례 비교 Signature & ReAct 클래스
+class PrecedentComparisonSignature(Signature):
+    input = InputField(desc="분석 목표, PDF, 맥락 등")
+    precedent_comparison = OutputField(desc="유사 사례 비교. 표 또는 요약 문단 포함")
+
+class PrecedentComparisonReAct(ReAct):
+    def __init__(self):
+        super().__init__(PrecedentComparisonSignature)
+
+# --- 전략 제언 Signature & ReAct 클래스
+class StrategyRecommendationSignature(Signature):
+    input = InputField(desc="분석 목표, PDF, 맥락 등")
+    strategy_recommendation = OutputField(desc="전략적 제언 및 우선순위 정리. 실행 가능한 제안 포함")
+
+class StrategyReAct(ReAct):
+    def __init__(self):
+        super().__init__(StrategyRecommendationSignature)
+
+# --- 최적화 조건 분석 Signature & ReAct 클래스
+class OptimizationConditionSignature(Signature):
+    input = InputField(desc="분석 목표, 프로그램, 조건, 분석 텍스트 등")
+    optimization_analysis = OutputField(desc="최적화 조건 분석 결과. 목적, 중요도, 고려사항 포함")
+
+class OptimizationReAct(ReAct):
+    def __init__(self):
+        super().__init__(OptimizationConditionSignature)
+
+# --- Narrative 생성 Signature & ReAct 클래스
+class NarrativeGenerationSignature(Signature):
+    input = InputField(desc="프로젝트 정보, Narrative 방향 설정, 분석 결과 등")
+    narrative_story = OutputField(desc="소설처럼 감성적이고 몰입감 있는 건축설계 발표용 Narrative. 스토리텔링 중심의 서술")
+
+class NarrativeReAct(ReAct):
+    def __init__(self):
+        super().__init__(NarrativeGenerationSignature)
+
+# --- 고급 분석 파이프라인 (3개 기능 모두 활용)
+class AdvancedAnalysisPipeline(Module):
+    def __init__(self):
+        super().__init__()
+        # BootstrapFewShot으로 학습된 ReAct 모델들
+        self.requirement_analyzer = BootstrapFewShot(RequirementTableReAct())
+        self.reasoning_engine = BootstrapFewShot(AIReasoningReAct())
+        self.strategy_generator = BootstrapFewShot(StrategyReAct())
+    
+    def forward(self, input):
+        # ReAct 기반 단계별 추론
+        req_result = self.requirement_analyzer(input)
+        reasoning_result = self.reasoning_engine(input + req_result)
+        strategy_result = self.strategy_generator(input + req_result + reasoning_result)
+        return strategy_result
+
+# --- 기존 함수들 (하위 호환성 유지)
 def run_requirement_table(full_prompt):
     try:
         result = dspy.Predict(RequirementTableSignature)(input=full_prompt)
@@ -19,11 +85,6 @@ def run_requirement_table(full_prompt):
         return value
     except Exception as e:
         return f"❌ 오류: {e}"
-
-# --- AI Reasoning Signature & 함수
-class AIReasoningSignature(Signature):
-    input = InputField(desc="분석 목표, PDF, 맥락 등")
-    ai_reasoning = OutputField(desc="Chain-of-Thought 기반 추론 해설. 각 항목별 논리 전개 및 AI 추론 명시")
 
 def run_ai_reasoning(full_prompt):
     try:
@@ -35,11 +96,6 @@ def run_ai_reasoning(full_prompt):
     except Exception as e:
         return f"❌ 오류: {e}"
 
-# --- 사례 비교 Signature & 함수
-class PrecedentComparisonSignature(Signature):
-    input = InputField(desc="분석 목표, PDF, 맥락 등")
-    precedent_comparison = OutputField(desc="유사 사례 비교. 표 또는 요약 문단 포함")
-
 def run_precedent_comparison(full_prompt):
     try:
         result = dspy.Predict(PrecedentComparisonSignature)(input=full_prompt)
@@ -49,11 +105,6 @@ def run_precedent_comparison(full_prompt):
         return value
     except Exception as e:
         return f"❌ 오류: {e}"
-
-# --- 전략 제언 Signature & 함수
-class StrategyRecommendationSignature(Signature):
-    input = InputField(desc="분석 목표, PDF, 맥락 등")
-    strategy_recommendation = OutputField(desc="전략적 제언 및 우선순위 정리. 실행 가능한 제안 포함")
 
 def run_strategy_recommendation(full_prompt):
     try:
@@ -65,11 +116,6 @@ def run_strategy_recommendation(full_prompt):
     except Exception as e:
         return f"❌ 오류: {e}"
 
-# --- 최적화 조건 분석 Signature & 함수
-class OptimizationConditionSignature(Signature):
-    input = InputField(desc="분석 목표, 프로그램, 조건, 분석 텍스트 등")
-    optimization_analysis = OutputField(desc="최적화 조건 분석 결과. 목적, 중요도, 고려사항 포함")
-
 def execute_agent(prompt):
     """일반적인 AI 에이전트 실행 함수"""
     try:
@@ -80,11 +126,6 @@ def execute_agent(prompt):
         return value
     except Exception as e:
         return f"❌ 오류: {e}"
-
-# --- Narrative 생성 Signature & 함수
-class NarrativeGenerationSignature(Signature):
-    input = InputField(desc="프로젝트 정보, Narrative 방향 설정, 분석 결과 등")
-    narrative_story = OutputField(desc="소설처럼 감성적이고 몰입감 있는 건축설계 발표용 Narrative. 스토리텔링 중심의 서술")
 
 def generate_narrative(prompt):
     """Narrative 생성 함수 - 소설처럼 감성적이고 몰입감 있는 스토리텔링"""

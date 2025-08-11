@@ -3,6 +3,8 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta
+import bcrypt
+import secrets
 
 class AuthSystem:
     def __init__(self):
@@ -45,11 +47,12 @@ class AuthSystem:
     
     def hash_password(self, password):
         """비밀번호 해시화"""
-        return hashlib.sha256(password.encode()).hexdigest()
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode(), salt).decode()
     
     def verify_password(self, password, hashed):
         """비밀번호 검증"""
-        return self.hash_password(password) == hashed
+        return bcrypt.checkpw(password.encode(), hashed.encode())
     
     def login(self, username, password):
         """로그인 처리"""

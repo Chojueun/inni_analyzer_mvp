@@ -10,8 +10,7 @@
 - 전체 순서 확정 및 분석 실행
 """
 
-import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from dataclasses import dataclass
 from enum import Enum
 

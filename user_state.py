@@ -59,12 +59,3 @@ def append_step_history(step_id: str, title: str, prompt: str, result: str):
 def get_current_step_index() -> int:
     return st.session_state.current_step_index
 
-# 쓰이지 않는 함수들 제거:
-# - update_user_input()
-# - get_step_result()
-# - get_step_context()
-# - next_step()
-# - previous_step()
-# - reset_steps()
-# - is_started()
-# - advance_step()

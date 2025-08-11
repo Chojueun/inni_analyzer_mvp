@@ -2,29 +2,16 @@
 # app.py
 import streamlit as st
 import os
-import base64
 import time
 from prompt_loader import load_prompt_blocks
 from user_state import (
-    init_user_state, get_user_inputs, set_pdf_summary,
-    get_pdf_summary, save_step_result,
-    get_current_step_index
+    init_user_state, set_pdf_summary  # get_user_inputs, get_pdf_summary 제거
 )
-from utils import extract_summary, extract_insight
 from summary_generator import summarize_pdf, extract_site_analysis_fields
-from user_state import append_step_history
-from utils_pdf_vector_simple import save_pdf_chunks_to_chroma
+from utils_pdf_vector import save_pdf_chunks_to_chroma  # 고급 버전으로 변경
 from init_dspy import *
-from agent_executor import (
-    run_requirement_table,
-    run_ai_reasoning,
-    run_precedent_comparison,
-    run_strategy_recommendation,
-)
 from dsl_to_prompt import *  # 모든 함수를 한 번에 import
-from report_generator import generate_pdf_report, generate_word_report
 from PIL import Image
-from webpage_generator import create_webpage_download_button
 from auth_system import init_auth, login_page, admin_panel, logout
 
 # dA-logo.png가 프로젝트 폴더에 있어야 함!
@@ -43,8 +30,7 @@ st.markdown("""
 # PIL로 이미지를 직접 리사이즈
 logo = Image.open("dA-logo.png")
 logo_resized = logo.resize((100, int(100 * logo.height / logo.width)), Image.Resampling.LANCZOS)
-st.sidebar.image(logo_resized, use_column_width=False)
-
+st.sidebar.image(logo_resized, use_container_width=False)
 
 BANNER_HEIGHT = 220
 
@@ -164,18 +150,37 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         with open(temp_path, "wb") as f:
             f.write(pdf_bytes)
         
-        from utils_pdf_vector_simple import save_pdf_chunks_to_chroma
+        from utils_pdf_vector import save_pdf_chunks_to_chroma
         save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA")
         st.success("✅ PDF 벡터DB 저장 완료!")
         
-        # PDF 텍스트 추출 및 요약
+        # PDF 텍스트 추출 및 요약 (기존 코드)
         from utils import extract_text_from_pdf
-        from summary_generator import summarize_pdf, extract_site_analysis_fields
+        from summary_generator import summarize_pdf, extract_site_analysis_fields, analyze_pdf_comprehensive, get_pdf_quality_report
+
         pdf_text = extract_text_from_pdf(pdf_bytes)
-        pdf_summary = summarize_pdf(pdf_text)
+
+        # 새로운 고급 분석 사용
+        comprehensive_result = analyze_pdf_comprehensive(pdf_text)
+
+        # 기존 호환성을 위한 처리
+        pdf_summary = comprehensive_result["summary"]
         set_pdf_summary(pdf_summary)
-        st.session_state["site_fields"] = extract_site_analysis_fields(pdf_text)
-        st.session_state["uploaded_pdf"] = uploaded_pdf
+        st.session_state["site_fields"] = comprehensive_result["site_fields"]
+
+        # 새로운 고급 정보 저장
+        st.session_state["pdf_analysis_result"] = comprehensive_result
+        st.session_state["pdf_quality_report"] = get_pdf_quality_report(pdf_text)
+
+        # 품질 정보 표시
+        quality = comprehensive_result["quality"]
+        if quality["grade"] in ["A+", "A"]:
+            st.success("✅ PDF 분석 품질: 우수")
+        elif quality["grade"] in ["B+", "B"]:
+            st.info("ℹ️ PDF 분석 품질: 양호")
+        else:
+            st.warning("⚠️ PDF 분석 품질: 개선 필요")
+
         st.success("✅ PDF 요약 완료!")
     
     # 정보 입력 완료 버튼

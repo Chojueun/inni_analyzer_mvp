@@ -1,123 +1,229 @@
-from utils_pdf_vector_simple import search_pdf_chunks
-from search_helper import search_web_serpapi
+from utils_pdf_vector import search_pdf_chunks  # 고급 버전으로 변경
+from search_helper import search_web_serpapi  # 주석 해제
+
+def get_web_search_for_block(block_id: str, user_inputs: dict) -> str:
+    """각 블록별로 관련된 웹 검색 수행"""
+    
+    # 블록별 검색 쿼리 매핑
+    search_queries = {
+        "requirement_analysis": [
+            f"{user_inputs.get('building_type', '건축')} 요구사항 분석 2024",
+            f"{user_inputs.get('building_type', '건축')} 설계 가이드라인"
+        ],
+        "precedent_benchmarking": [
+            f"{user_inputs.get('building_type', '건축')} 사례 2024",
+            f"{user_inputs.get('building_type', '건축')} 벤치마킹"
+        ],
+        "design_trend_application": [
+            "건축 디자인 트렌드 2024",
+            "건축 기술 트렌드 2024"
+        ],
+        "cost_estimation": [
+            "건축 공사비 트렌드 2024",
+            "건축 원가 분석 2024"
+        ],
+        "legal_review": [
+            "건축법 개정사항 2024",
+            "건축 규제 변경사항 2024"
+        ],
+        "mass_strategy": [
+            "건축 매스 전략 2024",
+            "건축 설계 트렌드 2024"
+        ],
+        "operation_investment_analysis": [
+            "건축 운영 효율성 2024",
+            "건축 투자 분석 2024"
+        ]
+    }
+    
+    queries = search_queries.get(block_id, ["건축 분석 2024"])
+    
+    all_results = []
+    for query in queries:
+        try:
+            result = search_web_serpapi(query)
+            if result and result != "[검색 API 키 없음]":
+                all_results.append(f"🔍 검색어: {query}\n{result}")
+        except Exception as e:
+            print(f"웹 검색 실패 ({query}): {e}")
+    
+    return "\n\n".join(all_results) if all_results else ""
 
 def convert_dsl_to_prompt(
     dsl_block: dict,
     user_inputs: dict,
     previous_summary: str = "",
     pdf_summary: dict = None,
-    site_fields: dict = None
+    site_fields: dict = None,
+    include_web_search: bool = True  # 웹 검색 포함 여부
 ) -> str:
-    prompt = ""
+    """최적화된 DSL을 프롬프트로 변환 (웹 검색 포함)"""
     
-    # 기본 정보
-    goal = dsl_block.get("goal", "")
-    role = dsl_block.get("role", "")
-    tasks = dsl_block.get("tasks", [])
-    language_tone = dsl_block.get("language_tone", "")
-    target_format = dsl_block.get("target_format", "")
-    required_phrases = dsl_block.get("required_phrases", [])
-    constraints = dsl_block.get("constraints", [])
-    output_structure = dsl_block.get("output_structure", [])
+    dsl = dsl_block.get("content_dsl", {})
+    prompt_parts = []
     
-    # 기본 역할 정의
-    prompt += f" 당신은 실제 건축 입찰/기획/심사 보고서를 작성하는 AI 분석가입니다.\n"
-    prompt += f" 이 단계의 역할: {role}\n"
-    prompt += f"\n아래 입력 정보를 바탕으로 **'{goal}'** 분석 보고서를 작성하세요.\n\n"
+    # 1. 기본 역할 및 목표
+    prompt_parts.append(f"# 🎯 분석 목표\n{dsl.get('goal', '')}")
+    prompt_parts.append(f"# 역할\n{dsl.get('role', '건축 분석 전문가')}")
     
-    # 프로젝트 기본 정보
-    prompt += "### 📊 프로젝트 기본 정보\n"
-    prompt += f"- 프로젝트명: {user_inputs.get('project_name', 'N/A')}\n"
-    prompt += f"- 소유자: {user_inputs.get('owner', 'N/A')}\n"
-    prompt += f"- 위치: {user_inputs.get('site_location', 'N/A')}\n"
-    prompt += f"- 면적: {user_inputs.get('site_area', 'N/A')}\n"
-    prompt += f"- 건물유형: {user_inputs.get('building_type', 'N/A')}\n"
-    prompt += f"- 프로젝트 목표: {user_inputs.get('project_goal', 'N/A')}\n\n"
+    if dsl.get('context'):
+        prompt_parts.append(f"# 📍 맥락\n{dsl['context']}")
     
-    # 분석 항목
+    # 2. 분석 프레임워크
+    framework = dsl.get('analysis_framework', {})
+    if framework:
+        framework_text = f"# 🔍 분석 프레임워크\n"
+        framework_text += f"접근 방식: {framework.get('approach', '')}\n"
+        framework_text += f"방법론: {framework.get('methodology', '')}\n"
+        
+        criteria = framework.get('criteria', [])
+        if criteria:
+            framework_text += f"\n평가 기준:\n"
+            for i, criterion in enumerate(criteria, 1):
+                framework_text += f"{i}. {criterion}\n"
+        
+        prompt_parts.append(framework_text)
+    
+    # 3. 작업 목록
+    tasks = dsl.get('tasks', [])
     if tasks:
-        prompt += "### 📂 주요 분석 항목\n"
+        tasks_text = f"# 📋 주요 분석 작업\n"
         for i, task in enumerate(tasks, 1):
-            prompt += f"{i}. {task}\n"
-        prompt += "\n"
+            tasks_text += f"{i}. {task}\n"
+        prompt_parts.append(tasks_text)
     
-    # 출력 구조 (JSON에서 가져옴)
+    # 4. 품질 기준
+    quality = dsl.get('quality_standards', {})
+    if quality:
+        quality_text = f"# ⚠️ 품질 기준\n"
+        
+        constraints = quality.get('constraints', [])
+        if constraints:
+            quality_text += f"제약사항:\n"
+            for constraint in constraints:
+                quality_text += f"- {constraint}\n"
+        
+        required_phrases = quality.get('required_phrases', [])
+        if required_phrases:
+            quality_text += f"\n필수 포함 문구: {', '.join(required_phrases)}\n"
+        
+        validation_rules = quality.get('validation_rules', [])
+        if validation_rules:
+            quality_text += f"\n검증 규칙:\n"
+            for rule in validation_rules:
+                quality_text += f"- {rule}\n"
+        
+        prompt_parts.append(quality_text)
+    
+    # 5. 출력 형식
+    presentation = dsl.get('presentation', {})
+    if presentation:
+        presentation_text = f"# 📋 출력 형식\n"
+        presentation_text += f"언어 톤: {presentation.get('language_tone', '')}\n"
+        presentation_text += f"형식: {presentation.get('target_format', '')}\n"
+        
+        visual_elements = presentation.get('visual_elements', [])
+        if visual_elements:
+            presentation_text += f"시각 요소: {', '.join(visual_elements)}\n"
+        
+        prompt_parts.append(presentation_text)
+    
+    # 6. 프로젝트 기본 정보
+    project_info = f"# 📊 프로젝트 기본 정보\n"
+    project_info += f"- 프로젝트명: {user_inputs.get('project_name', 'N/A')}\n"
+    project_info += f"- 소유자: {user_inputs.get('owner', 'N/A')}\n"
+    project_info += f"- 위치: {user_inputs.get('site_location', 'N/A')}\n"
+    project_info += f"- 면적: {user_inputs.get('site_area', 'N/A')}\n"
+    project_info += f"- 건물유형: {user_inputs.get('building_type', 'N/A')}\n"
+    project_info += f"- 프로젝트 목표: {user_inputs.get('project_goal', 'N/A')}\n"
+    prompt_parts.append(project_info)
+    
+    # 7. 사이트 분석 정보 (site_fields 활용)
+    if site_fields:
+        site_text = f"# 🏗️ 사이트 분석 정보\n"
+        for key, value in site_fields.items():
+            if value and str(value).strip():  # 빈 값이 아닌 경우만
+                # 키 이름을 더 읽기 쉽게 변환
+                readable_key = key.replace('_', ' ').title()
+                site_text += f"- {readable_key}: {value}\n"
+        prompt_parts.append(site_text)
+    
+    # 8. 출력 구조
+    output_structure = dsl.get('output_structure', [])
     if output_structure:
-        prompt += "### 📋 출력 구조\n"
+        structure_text = f"# 📋 출력 구조\n"
         for i, structure in enumerate(output_structure, 1):
-            prompt += f"{i}. {structure}\n"
-        prompt += "\n"
+            structure_text += f"{i}. {structure}\n"
+        prompt_parts.append(structure_text)
     
-    # 제약사항 (JSON에서 가져옴)
-    if constraints:
-        prompt += "### ⚠️ 분석 제약사항\n"
-        for constraint in constraints:
-            prompt += f"- {constraint}\n"
-        prompt += "\n"
+    # 9. 이전 분석 결과 (있는 경우)
+    if previous_summary:
+        prompt_parts.append(f"# 📚 이전 분석 결과\n{previous_summary}\n")
     
-    # 언어 톤 및 형식 (JSON에서 가져옴)
-    if language_tone:
-        prompt += f"### 📋 분석 스타일\n{language_tone}\n\n"
+    # 10. PDF 요약 (있는 경우)
+    if pdf_summary:
+        prompt_parts.append(f"# 📄 PDF 문서 요약\n{pdf_summary}\n")
     
-    if target_format:
-        prompt += f"### 📋 출력 형식\n{target_format}\n\n"
-    
-    if required_phrases:
-        prompt += f"### 📋 필수 포함 문구\n{', '.join(required_phrases)}\n\n"
-    
-    # PDF 검색 결과
+    # 11. PDF 검색 결과 (기존 기능 유지)
     if dsl_block.get("search_source") == "pdf_vector_db":
         query_template = dsl_block.get("search_query_template", "주요 내용")
         query = query_template.format(**user_inputs)
         try:
             pdf_chunks = search_pdf_chunks(query, top_k=3)
             if pdf_chunks:
-                prompt += f"###  PDF 문서 관련 정보\n{pdf_chunks}\n\n"
+                prompt_parts.append(f"# PDF 문서 관련 정보\n{pdf_chunks}\n")
         except Exception as e:
             pass
     
-    return prompt
+    # 웹 검색 결과 추가 (새로 추가)
+    if include_web_search:
+        web_search_results = get_web_search_for_block(dsl_block.get("id", ""), user_inputs)
+        if web_search_results:
+            web_search_text = f"# 🌐 최신 웹 검색 결과\n{web_search_results}\n"
+            prompt_parts.append(web_search_text)
+    
+    return "\n\n".join(prompt_parts)
 
 # 단계별 특화된 프롬프트 함수들
 def prompt_requirement_table(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
-    base = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields)
-    output_structure = dsl_block.get("output_structure", [])
+    """요구사항 분석 프롬프트 (웹 검색 포함)"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
     
-    if output_structure and len(output_structure) >= 1:
-        target = output_structure[0]  # 첫 번째 출력 구조
-        return base + f"\n\n⚠️ 반드시 '{target}' 항목만 생성. 그 외 항목은 출력하지 마세요."
-    else:
-        return base + "\n\n⚠️ 반드시 '요구사항 정리표' 항목만 표로 생성. 그 외 항목은 출력하지 마세요."
+    # 웹 검색 결과가 있으면 추가 지시사항
+    if "🌐 최신 웹 검색 결과" in base_prompt:
+        base_prompt += "\n\n⚠️ 위의 최신 웹 검색 결과를 참고하여 요구사항을 분석해주세요. 최신 트렌드와 가이드라인을 반영한 현실적인 요구사항을 제시해주세요."
+    
+    return base_prompt + "\n\n⚠️ 반드시 '요구사항 정리표' 항목만 표로 생성. 그 외 항목은 출력하지 마세요."
 
 def prompt_ai_reasoning(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
     base = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields)
-    output_structure = dsl_block.get("output_structure", [])
+    output_structure = dsl_block.get("content_dsl", {}).get("output_structure", [])
     
     if output_structure and len(output_structure) >= 2:
         target = output_structure[1]  # 두 번째 출력 구조
         return base + f"\n\n⚠️ 반드시 '{target}' 항목만 생성. 그 외 항목은 출력하지 마세요."
     else:
-        return base + "\n\n⚠️ 반드시 'AI reasoning' 항목(Chain-of-Thought 논리 해설)만 생성. 그 외 항목은 출력하지 마세요."
+        return base + f"\n\n⚠️ 반드시 'AI 추론 해설' 항목만 생성. 그 외 항목은 출력하지 마세요."
 
 def prompt_precedent_comparison(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
-    base = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields)
-    output_structure = dsl_block.get("output_structure", [])
+    """사례 비교 프롬프트 (웹 검색 포함)"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
     
-    if output_structure and len(output_structure) >= 3:
-        target = output_structure[2]  # 세 번째 출력 구조
-        return base + f"\n\n⚠️ 반드시 '{target}' 항목만 출력. 그 외 항목은 출력하지 마세요."
-    else:
-        return base + "\n\n⚠️ 반드시 '유사 사례 비교' 표 또는 비교 해설만 출력. 그 외 항목은 출력하지 마세요."
+    # 웹 검색 결과가 있으면 추가 지시사항
+    if "🌐 최신 웹 검색 결과" in base_prompt:
+        base_prompt += "\n\n⚠️ 위의 최신 웹 검색 결과에 포함된 사례들을 참고하여 비교 분석해주세요. 최신 사례와 트렌드를 반영한 비교를 제공해주세요."
+    
+    return base_prompt + "\n\n⚠️ 반드시 '유사 사례 비교' 표 또는 비교 해설만 출력. 그 외 항목은 출력하지 마세요."
 
 def prompt_strategy_recommendation(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
-    base = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields)
-    output_structure = dsl_block.get("output_structure", [])
+    """전략 제언 프롬프트 (웹 검색 포함)"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
     
-    if output_structure and len(output_structure) >= 4:
-        target = output_structure[3]  # 네 번째 출력 구조
-        return base + f"\n\n⚠️ 반드시 '{target}' 항목만 출력. 그 외 항목은 출력하지 마세요."
-    else:
-        return base + "\n\n⚠️ 반드시 '전략적 제언 및 시사점'만 출력. 그 외 항목은 출력하지 마세요."
+    # 웹 검색 결과가 있으면 추가 지시사항
+    if "🌐 최신 웹 검색 결과" in base_prompt:
+        base_prompt += "\n\n⚠️ 위의 최신 웹 검색 결과를 바탕으로 현실적이고 실행 가능한 전략을 제시해주세요. 최신 트렌드와 시장 동향을 반영한 전략적 제언을 해주세요."
+    
+    return base_prompt + "\n\n⚠️ 반드시 '전략적 제언 및 시사점'만 출력. 그 외 항목은 출력하지 마세요."
 
 def prompt_claude_narrative(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
     """건축설계 발표용 Narrative 생성 시스템 전용 프롬프트 생성"""

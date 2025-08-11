@@ -2,13 +2,16 @@
 import requests
 import os
 import streamlit as st
+from dotenv import load_dotenv
 
-# Streamlit Secrets에서 API 키 가져오기 (우선순위)
-try:
-    SERP_API_KEY = st.secrets.get("SERP_API_KEY")
-    if not SERP_API_KEY:
-        SERP_API_KEY = os.environ.get("SERP_API_KEY")
-except:
+# .env 파일 로드
+load_dotenv()
+
+# 1단계: Streamlit Secrets에서 가져오기 (우선순위)
+SERP_API_KEY = st.secrets.get("SERP_API_KEY")
+
+# 2단계: 환경 변수에서 가져오기 (로컬 개발용)
+if not SERP_API_KEY:
     SERP_API_KEY = os.environ.get("SERP_API_KEY")
 
 def search_web_serpapi(query):
