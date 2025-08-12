@@ -40,7 +40,7 @@ class ObjectiveType(Enum):
     SPACE_PLANNING = "공간계획"
     CONCEPT_RESEARCH = "컨셉리서치"
     RISK_ANALYSIS = "리스크분석"
-    DOCUMENT_ANALYSIS = "과업지시서 및 문서 분석"  # 이름 변경
+    DOCUMENT_ANALYSIS = "과업지시서 및 문서 분석"
     OTHER = "기타"
 
 @dataclass
@@ -80,7 +80,133 @@ class AnalysisSystem:
         self.required_steps = self._load_required_steps()
         self.recommended_steps = self._load_recommended_steps()
         self.optional_steps = self._load_optional_steps()
+
+    # ─── 실행과 관련된 핵심 로직 (과거 코드 통합) ─────────────────────────────
+    
+    def get_available_objectives(self, purpose: PurposeType) -> List[ObjectiveType]:
+        """용도에 따른 사용 가능한 목적 반환"""
+        return self.purpose_objective_mapping.get(purpose, [ObjectiveType.OTHER])
+    
+    def suggest_analysis_steps(self, purpose: PurposeType, objectives: List[ObjectiveType]) -> AnalysisWorkflow:
+        """분석 단계 자동 제안 (과거 코드 방식)"""
+        steps = self.required_steps.copy()
         
+        for objective in objectives:
+            if objective in self.recommended_steps:
+                steps.extend(self.recommended_steps[objective])
+        
+        # 중복 제거
+        unique_steps = []
+        seen_ids = set()
+        for step in steps:
+            if step.id not in seen_ids:
+                unique_steps.append(step)
+                seen_ids.add(step.id)
+        
+        # 순서 정렬
+        unique_steps.sort(key=lambda x: x.order)
+        
+        return AnalysisWorkflow(
+            purpose=purpose,
+            objective=objectives[0] if objectives else ObjectiveType.OTHER,
+            steps=unique_steps
+        )
+
+    def add_optional_step(self, workflow: AnalysisWorkflow, step_id: str) -> AnalysisWorkflow:
+        """번외 단계 추가 (과거 코드 방식)"""
+        optional_step = next((step for step in self.optional_steps if step.id == step_id), None)
+        if optional_step:
+            workflow.custom_steps.append(optional_step)
+        return workflow
+
+    def remove_step(self, workflow: AnalysisWorkflow, step_id: str) -> AnalysisWorkflow:
+        """단계 제거 (필수 단계는 제거 불가)"""
+        workflow.steps = [step for step in workflow.steps if not (step.id == step_id and not step.is_required)]
+        workflow.custom_steps = [step for step in workflow.custom_steps if step.id != step_id]
+        return workflow
+
+    def reorder_steps(self, workflow: AnalysisWorkflow, new_order: List[str]) -> AnalysisWorkflow:
+        """순서 변경 (과거 코드 방식)"""
+        all_steps = workflow.steps + workflow.custom_steps
+        
+        ordered_steps = []
+        for step_id in new_order:
+            step = next((s for s in all_steps if s.id == step_id), None)
+            if step:
+                ordered_steps.append(step)
+        
+        required_steps = [step for step in ordered_steps if step.is_required]
+        other_steps = [step for step in ordered_steps if not step.is_required]
+        
+        workflow.steps = required_steps
+        workflow.custom_steps = other_steps
+        
+        return workflow
+
+    def get_final_workflow(self, workflow: AnalysisWorkflow) -> List[AnalysisStep]:
+        """최종 실행 단계 목록 (과거 코드 방식)"""
+        all_steps = workflow.steps + workflow.custom_steps
+        all_steps.sort(key=lambda x: x.order)
+        return all_steps
+
+    # ─── 실행 상태 관리 (새로 추가) ─────────────────────────────
+    
+    def get_current_step(self, workflow: AnalysisWorkflow, current_index: int) -> AnalysisStep:
+        """현재 실행할 단계 반환"""
+        all_steps = self.get_final_workflow(workflow)
+        if 0 <= current_index < len(all_steps):
+            return all_steps[current_index]
+        return None
+
+    def get_step_progress(self, workflow: AnalysisWorkflow, completed_steps: List[str]) -> Dict:
+        """단계별 진행 상황 반환"""
+        all_steps = self.get_final_workflow(workflow)
+        progress = {
+            "total": len(all_steps),
+            "completed": len(completed_steps),
+            "current_index": len(completed_steps),
+            "progress_percentage": (len(completed_steps) / len(all_steps)) * 100 if all_steps else 0,
+            "steps_status": []
+        }
+        
+        for i, step in enumerate(all_steps):
+            status = "completed" if step.title in completed_steps else "pending"
+            if i == len(completed_steps):
+                status = "current"
+            
+            progress["steps_status"].append({
+                "index": i,
+                "step": step,
+                "status": status
+            })
+        
+        return progress
+
+    def can_execute_step(self, workflow: AnalysisWorkflow, step_id: str, completed_steps: List[str]) -> bool:
+        """단계 실행 가능 여부 확인"""
+        step = next((s for s in self.get_final_workflow(workflow) if s.id == step_id), None)
+        if not step:
+            return False
+        
+        # 의존성 확인
+        for dependency in step.dependencies:
+            if dependency not in completed_steps:
+                return False
+        
+        return True
+
+    def get_next_executable_step(self, workflow: AnalysisWorkflow, completed_steps: List[str]) -> AnalysisStep:
+        """다음 실행 가능한 단계 반환"""
+        all_steps = self.get_final_workflow(workflow)
+        
+        for step in all_steps:
+            if step.title not in completed_steps and self.can_execute_step(workflow, step.id, completed_steps):
+                return step
+        
+        return None
+
+    # ─── 기존 메서드들 (유지) ─────────────────────────────
+    
     def _load_purpose_objective_mapping(self) -> Dict[PurposeType, List[ObjectiveType]]:
         """용도별 목적 매핑 로드"""
         return {
@@ -184,9 +310,9 @@ class AnalysisSystem:
                 ObjectiveType.DOCUMENT_ANALYSIS
             ]
         }
-    
+
     def _load_required_steps(self) -> List[AnalysisStep]:
-        """필수 단계 로드 (프롬프트 기반)"""
+        """필수 단계 로드"""
         return [
             AnalysisStep(
                 id="doc_collector",
@@ -198,308 +324,159 @@ class AnalysisSystem:
             ),
             AnalysisStep(
                 id="context_analyzer",
-                title="건축주 의도 및 문맥 AI 추론",
-                description="문서 내 언어 패턴, 강조 표현, 문맥을 통해 건축주(발주처)의 암묵적 의도 및 우선순위를 AI로 추론",
+                title="프로젝트 컨텍스트 및 배경 분석",
+                description="프로젝트의 배경, 목적, 제약사항, 이해관계자, 지역적 특성 등을 종합 분석",
                 is_required=True,
                 order=2,
-                category="문서분석"
-            ),
-            AnalysisStep(
-                id="requirements_extractor",
-                title="요구사항 분류 및 우선순위 도출",
-                description="문서 내 명시적/암묵적 요구사항을 입찰·설계·비용 등 카테고리로 구분, 우선순위 및 심사 포인트 도출",
-                is_required=True,
-                order=3,
-                category="문서분석"
-            ),
-            AnalysisStep(
-                id="site_regulation_analysis", 
-                title="대지 환경 및 법규 분석",
-                description="대상 대지의 잠재력과 제약사항을 다각적으로 분석해 후속 설계 전략의 현실적 기반을 마련",
-                is_required=True,
-                order=4,
-                category="기초"
-            ),
-            AnalysisStep(
-                id="task_comprehension",
-                title="과업 이해도 및 설계 주안점", 
-                description="InnoScan 결과와 과업지시서를 종합 분석해 설계 전제조건, KPI, 제약조건 등을 정리",
-                is_required=True,
-                order=5,
-                category="기초"
+                category="컨텍스트분석"
             )
         ]
-    
+
     def _load_recommended_steps(self) -> Dict[ObjectiveType, List[AnalysisStep]]:
-        """목적별 권장 단계 로드 (프롬프트 기반)"""
+        """권장 단계 로드"""
         return {
             ObjectiveType.MARKET_ANALYSIS: [
                 AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    id="market_analyzer",
+                    title="시장 분석 및 경쟁사 조사",
+                    description="시장 현황, 경쟁사 분석, 시장 트렌드, 수요 예측 등을 종합 분석",
                     is_recommended=True,
-                    order=4,
-                    category="분석"
+                    order=3,
+                    category="시장분석"
                 )
             ],
             ObjectiveType.DESIGN_GUIDELINE: [
                 AnalysisStep(
-                    id="design_trend_application",
-                    title="통합 디자인 트렌드 적용 전략",
-                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    id="design_guideline",
+                    title="디자인 가이드라인 및 기준 분석",
+                    description="디자인 원칙, 건축 기준, 규제 요구사항, 디자인 트렌드를 분석",
                     is_recommended=True,
                     order=4,
-                    category="설계"
-                ),
-                AnalysisStep(
-                    id="mass_strategy",
-                    title="건축설계 방향 및 매스(Mass) 전략",
-                    description="전 단계 분석 결과를 통합해 건축설계의 핵심 컨셉과 최적 매스 전략을 도출",
-                    is_recommended=True,
-                    order=5,
-                    category="설계"
+                    category="디자인분석"
                 )
             ],
             ObjectiveType.MASS_STRATEGY: [
                 AnalysisStep(
                     id="mass_strategy",
-                    title="건축설계 방향 및 매스(Mass) 전략",
-                    description="전 단계 분석 결과를 통합해 건축설계의 핵심 컨셉과 최적 매스 전략을 도출",
-                    is_recommended=True,
-                    order=4,
-                    category="설계"
-                ),
-                AnalysisStep(
-                    id="schematic_space_plan",
-                    title="평면·단면 스키매틱 및 공간 계획",
-                    description="주요 프로그램별 공간·면적 배치, 단면 연계, 실별 수용 인원 등 공간계획을 스키매틱으로 도출",
+                    title="Mass 전략 및 공간 구성 분석",
+                    description="건물 형태, 공간 구성, 동선 계획, 기능 배치 전략을 분석",
                     is_recommended=True,
                     order=5,
-                    category="설계"
+                    category="공간분석"
                 )
             ],
             ObjectiveType.COST_ANALYSIS: [
                 AnalysisStep(
-                    id="cost_estimation",
-                    title="공사비 예측 및 원가 검토",
-                    description="연면적, 용도, 적용 공법 등 입력값을 바탕으로 개략 공사비와 비용구조를 산출",
+                    id="cost_analyzer",
+                    title="원가 분석 및 경제성 검토",
+                    description="건설 원가, 운영 비용, 수익성 분석, 투자 대비 효과를 분석",
                     is_recommended=True,
-                    order=4,
-                    category="경제성"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=5,
-                    category="경제성"
+                    order=6,
+                    category="경제분석"
                 )
             ],
             ObjectiveType.OPERATION_STRATEGY: [
                 AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    id="operation_strategy",
+                    title="운영 전략 및 관리 방안",
+                    description="시설 운영 방안, 관리 체계, 서비스 전략, 효율성 개선 방안을 분석",
                     is_recommended=True,
-                    order=4,
-                    category="운영"
-                ),
-                AnalysisStep(
-                    id="ux_circulation_simulation",
-                    title="사용자 동선 분석 및 시나리오별 공간 최적화 전략",
-                    description="사용자 유형별 동선/체류 시나리오와 AI 기반 시뮬레이션 결과를 바탕으로 공간·동선 최적화 전략을 제시",
-                    is_recommended=True,
-                    order=5,
-                    category="운영"
+                    order=7,
+                    category="운영분석"
                 )
             ],
             ObjectiveType.BRANDING: [
                 AnalysisStep(
-                    id="architectural_branding_identity",
-                    title="건축적 차별화·브랜딩·정체성 전략",
-                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    id="branding_strategy",
+                    title="브랜딩 전략 및 아이덴티티",
+                    description="브랜드 아이덴티티, 마케팅 전략, 사용자 경험, 차별화 요소를 분석",
                     is_recommended=True,
-                    order=4,
-                    category="브랜딩"
+                    order=8,
+                    category="브랜딩분석"
                 )
             ],
             ObjectiveType.LEGAL_REVIEW: [
                 AnalysisStep(
-                    id="legal_review_analysis",
+                    id="legal_reviewer",
                     title="법적 검토 및 규제 분석",
-                    description="관련 법규, 규제, 인허가 요건 등을 종합적으로 검토하여 프로젝트의 법적 실현 가능성을 평가",
+                    description="관련 법규, 규제 요구사항, 계약 조건, 법적 리스크를 분석",
                     is_recommended=True,
-                    order=4,
-                    category="법규"
+                    order=9,
+                    category="법적분석"
                 )
             ],
             ObjectiveType.SPACE_PLANNING: [
                 AnalysisStep(
-                    id="area_programming",
-                    title="면적 산출 및 공간 배분 전략",
-                    description="수요 기반 분석과 시장/법적 기준을 바탕으로 최적의 공간구성과 면적 배분안을 도출",
+                    id="space_planner",
+                    title="공간 계획 및 기능 배치",
+                    description="공간 구성, 기능별 배치, 동선 계획, 확장성 고려사항을 분석",
                     is_recommended=True,
-                    order=4,
-                    category="공간계획"
-                ),
-                AnalysisStep(
-                    id="schematic_space_plan",
-                    title="평면·단면 스키매틱 및 공간 계획",
-                    description="주요 프로그램별 공간·면적 배치, 단면 연계, 실별 수용 인원 등 공간계획을 스키매틱으로 도출",
-                    is_recommended=True,
-                    order=5,
+                    order=10,
                     category="공간계획"
                 )
             ],
             ObjectiveType.CONCEPT_RESEARCH: [
                 AnalysisStep(
-                    id="concept_development",
-                    title="설계 컨셉 도출 및 평가",
-                    description="키워드/요구/KPI를 조합해 설계 컨셉을 도출하고 평가 기준까지 체계화",
+                    id="concept_researcher",
+                    title="컨셉 리서치 및 참고 사례",
+                    description="유사 프로젝트 사례, 컨셉 트렌드, 참고 자료, 벤치마킹 요소를 분석",
                     is_recommended=True,
-                    order=4,
-                    category="컨셉리서치"
+                    order=11,
+                    category="컨셉분석"
                 )
             ],
             ObjectiveType.RISK_ANALYSIS: [
                 AnalysisStep(
-                    id="risk_analysis",
-                    title="리스크 분석 및 대응 전략",
-                    description="프로젝트의 다양한 리스크 요소를 분석하고 대응 전략을 수립",
+                    id="risk_analyzer",
+                    title="리스크 분석 및 대응 방안",
+                    description="프로젝트 리스크, 위험 요소, 대응 전략, 예방 조치를 분석",
                     is_recommended=True,
-                    order=4,
+                    order=12,
                     category="리스크분석"
                 )
             ],
             ObjectiveType.DOCUMENT_ANALYSIS: [
                 AnalysisStep(
-                    id="compliance_analyzer",
-                    title="법규·지침 준수 체크",
-                    description="요구사항별 관련 법령·지침 준수 여부 및 필수 인증·승인 절차 체크리스트 도출",
+                    id="document_analyzer",
+                    title="과업지시서 및 문서 분석",
+                    description="과업지시서, 계약서, 기술사양서, 관련 문서의 상세 분석",
                     is_recommended=True,
-                    order=6,  # 필수 단계 다음
-                    category="문서분석"
-                ),
-                AnalysisStep(
-                    id="risk_strategist",
-                    title="주요 리스크 도출 및 대응",
-                    description="요구사항 및 문서 상 충돌, 누락, 모호성 등 주요 리스크 도출 및 대응 방안 제시",
-                    is_recommended=True,
-                    order=7,
-                    category="문서분석"
-                ),
-                AnalysisStep(
-                    id="action_planner",
-                    title="실행 체크리스트 및 핵심 포인트",
-                    description="입찰·계약 준비를 위한 우선 수행과제, 일정, 담당자, 필수 기억사항 정리",
-                    is_recommended=True,
-                    order=8,
+                    order=13,
                     category="문서분석"
                 )
             ]
         }
-    
+
     def _load_optional_steps(self) -> List[AnalysisStep]:
-        """번외 단계 로드 (프롬프트 기반)"""
+        """옵션 단계 로드"""
         return [
             AnalysisStep(
                 id="concept_development",
-                title="설계 컨셉 도출 및 평가",
-                description="키워드/요구/KPI를 조합해 설계 컨셉을 도출하고 평가 기준까지 체계화",
+                title="컨셉 개발 및 아이디어 구체화",
+                description="프로젝트 컨셉 개발, 아이디어 구체화, 창의적 솔루션 제안",
                 is_optional=True,
-                order=6,
-                category="설계"
+                order=14,
+                category="컨셉개발"
             ),
             AnalysisStep(
-                id="flexible_space_strategy",
-                title="가변형 공간·프로그램 유연성 및 확장성 설계 전략",
-                description="프로그램 변화·미래 수요 대응을 위한 가변형 공간, 다목적 영역, Flexible Mass/Plan 설계 방안을 제시",
+                id="sustainability_analysis",
+                title="지속가능성 및 친환경 분석",
+                description="친환경 요소, 에너지 효율성, 지속가능성 전략 분석",
                 is_optional=True,
-                order=7,
-                category="설계"
+                order=15,
+                category="지속가능성"
             ),
             AnalysisStep(
-                id="design_requirement_summary",
-                title="최종 설계 요구사항 및 가이드라인",
-                description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                id="technology_integration",
+                title="기술 통합 및 스마트 솔루션",
+                description="스마트 기술, IoT, 자동화, 디지털 솔루션 통합 방안",
                 is_optional=True,
-                order=8,
-                category="종합"
+                order=16,
+                category="기술통합"
             )
         ]
-    
-    def get_available_objectives(self, purpose: PurposeType) -> List[ObjectiveType]:
-        """용도에 따른 사용 가능한 목적 목록 반환"""
-        return self.purpose_objective_mapping.get(purpose, [])
-    
-    def suggest_analysis_steps(self, purpose: PurposeType, objectives: List[ObjectiveType]) -> AnalysisWorkflow:
-        """용도와 목적에 따른 분석 단계 자동 제안"""
-        # 필수 단계 포함
-        steps = self.required_steps.copy()
-        
-        # 목적별 권장 단계 추가
-        for objective in objectives:
-            if objective in self.recommended_steps:
-                steps.extend(self.recommended_steps[objective])
-        
-        # 중복 제거 및 순서 정렬
-        unique_steps = []
-        seen_ids = set()
-        for step in steps:
-            if step.id not in seen_ids:
-                unique_steps.append(step)
-                seen_ids.add(step.id)
-        
-        # 순서별 정렬
-        unique_steps.sort(key=lambda x: x.order)
-        
-        return AnalysisWorkflow(
-            purpose=purpose,
-            objective=objectives[0] if objectives else ObjectiveType.OTHER,
-            steps=unique_steps
-        )
-    
-    def add_optional_step(self, workflow: AnalysisWorkflow, step_id: str) -> AnalysisWorkflow:
-        """번외 단계 추가"""
-        optional_step = next((step for step in self.optional_steps if step.id == step_id), None)
-        if optional_step:
-            workflow.custom_steps.append(optional_step)
-        return workflow
-    
-    def remove_step(self, workflow: AnalysisWorkflow, step_id: str) -> AnalysisWorkflow:
-        """단계 제거 (필수 단계는 제거 불가)"""
-        workflow.steps = [step for step in workflow.steps if not (step.id == step_id and not step.is_required)]
-        workflow.custom_steps = [step for step in workflow.custom_steps if step.id != step_id]
-        return workflow
-    
-    def reorder_steps(self, workflow: AnalysisWorkflow, new_order: List[str]) -> AnalysisWorkflow:
-        """단계 순서 변경"""
-        # 모든 단계를 하나의 리스트로 합치기
-        all_steps = workflow.steps + workflow.custom_steps
-        
-        # 새로운 순서에 따라 재정렬
-        ordered_steps = []
-        for step_id in new_order:
-            step = next((s for s in all_steps if s.id == step_id), None)
-            if step:
-                ordered_steps.append(step)
-        
-        # 필수 단계와 나머지 단계 분리
-        required_steps = [step for step in ordered_steps if step.is_required]
-        other_steps = [step for step in ordered_steps if not step.is_required]
-        
-        workflow.steps = required_steps
-        workflow.custom_steps = other_steps
-        
-        return workflow
-    
-    def get_final_workflow(self, workflow: AnalysisWorkflow) -> List[AnalysisStep]:
-        """최종 워크플로우 반환 (모든 단계 포함)"""
-        all_steps = workflow.steps + workflow.custom_steps
-        all_steps.sort(key=lambda x: x.order)
-        return all_steps
+
+    # ─── 유틸리티 메서드들 ─────────────────────────────
     
     def export_workflow_config(self, workflow: AnalysisWorkflow) -> Dict:
         """워크플로우 설정 내보내기"""
@@ -520,7 +497,7 @@ class AnalysisSystem:
                 for step in self.get_final_workflow(workflow)
             ]
         }
-    
+
     def import_workflow_config(self, config: Dict) -> AnalysisWorkflow:
         """워크플로우 설정 가져오기"""
         purpose = PurposeType(config["purpose"])

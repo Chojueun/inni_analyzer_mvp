@@ -5,12 +5,21 @@ import os
 import time
 from prompt_loader import load_prompt_blocks
 from user_state import (
-    init_user_state, set_pdf_summary  # get_user_inputs, get_pdf_summary 제거
+    init_user_state, set_pdf_summary, get_user_inputs, get_pdf_summary,
+    save_step_result, append_step_history, get_current_step_index
 )
 from summary_generator import summarize_pdf, extract_site_analysis_fields
-from utils_pdf_vector import save_pdf_chunks_to_chroma  # 고급 버전으로 변경
+from utils_pdf_vector import save_pdf_chunks_to_chroma
+from utils import extract_summary, extract_insight
 from init_dspy import *
-from dsl_to_prompt import *  # 모든 함수를 한 번에 import
+from dsl_to_prompt import (
+    convert_dsl_to_prompt, prompt_requirement_table, prompt_ai_reasoning,
+    prompt_precedent_comparison, prompt_strategy_recommendation
+)
+from agent_executor import (
+    run_requirement_table, run_ai_reasoning,
+    run_precedent_comparison, run_strategy_recommendation
+)
 from PIL import Image
 from auth_system import init_auth, login_page, admin_panel, logout
 
@@ -144,15 +153,18 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
     # PDF 업로드
     uploaded_pdf = st.file_uploader("📎 PDF 업로드", type=["pdf"])
     if uploaded_pdf:
-        # PDF 처리 로직 (기존 app.py에서 가져옴)
+        # PDF 처리 로직 (간단 저장만 사용)
         pdf_bytes = uploaded_pdf.read()
         temp_path = "temp_uploaded.pdf"
         with open(temp_path, "wb") as f:
             f.write(pdf_bytes)
         
+        # 간단 저장 사용
         from utils_pdf_vector import save_pdf_chunks_to_chroma
-        save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA")
-        st.success("✅ PDF 벡터DB 저장 완료!")
+        if save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA"):
+            st.success("✅ PDF 저장 완료!")
+        else:
+            st.error("❌ PDF 저장 실패!")
         
         # PDF 텍스트 추출 및 요약 (기존 코드)
         from utils import extract_text_from_pdf
@@ -186,6 +198,19 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
     # 정보 입력 완료 버튼
     if st.button("정보 입력 완료", type="primary"):
         st.session_state.show_project_info = False
+        
+        # 워크플로우 관련 상태 초기화
+        st.session_state.workflow_steps = []
+        st.session_state.removed_steps = set()
+        st.session_state.added_steps = set()
+        st.session_state.current_step_index = 0
+        st.session_state.analysis_started = False
+        st.session_state.cot_history = []
+        st.session_state.ordered_blocks = []
+        st.session_state.selected_purpose = None
+        st.session_state.selected_objectives = []
+        st.session_state.current_workflow = None
+        
         st.success("프로젝트 정보 입력이 완료되었습니다!")
         st.rerun()
 
@@ -264,21 +289,22 @@ if not st.session_state.get('show_project_info', True):
     if st.session_state.sidebar_step_added:
         st.session_state.sidebar_step_added = False
 
-# ─── 2. 새로운 탭 기반 인터페이스 ───────────────────────────
+# ─── 3. 새로운 탭 기반 인터페이스 ───────────────────────────
 from workflow_ui import render_tabbed_interface
 
-# 탭 기반 인터페이스 렌더링
+# 탭 기반 인터페이스 렌더링 (이 부분만 남기고 나머지 중복 UI 제거)
 render_tabbed_interface()
 
 # ─── 4. 누적된 이전 분석 결과 ───────────────────────────
-if st.session_state.cot_history:
-    st.markdown("### 누적 분석 결과")
-    for entry in st.session_state.cot_history:
-        st.markdown(f"#### {entry['step']}")
-        st.markdown(f"**요약:** {entry.get('summary', '')}")
-        st.markdown(f"**인사이트:** {entry.get('insight', '')}")
-        st.markdown(f"---\n{entry['result']}")
-        st.markdown("---")
+# 이 부분 제거 (탭 인터페이스에서 처리됨)
+# if st.session_state.cot_history:
+#     st.markdown("### 누적 분석 결과")
+#     for entry in st.session_state.cot_history:
+#         st.markdown(f"#### {entry['step']}")
+#         st.markdown(f"**요약:** {entry.get('summary', '')}")
+#         st.markdown(f"**인사이트:** {entry.get('insight', '')}")
+#         st.markdown(f"---\n{entry['result']}")
+#         st.markdown("---")
 
 # 웹페이지 생성과 전체 분석 보고서는 보고서 생성 탭으로 이동
 
@@ -298,15 +324,11 @@ if st.session_state.get('uploaded_pdf'):
     else:
         st.sidebar.warning("⚠️ PDF 텍스트 처리 중...")
 
-
-
 # Rate Limit 경고
 if st.session_state.get("api_calls", 0) > 10:
     st.sidebar.warning("⚠️ API 호출이 많습니다. 잠시 대기해주세요.")
 
 # Rate Limit 오류 발생 시 대기 후 재시도
-import time
-
 if "rate_limit_wait" not in st.session_state:
     st.session_state.rate_limit_wait = False
 

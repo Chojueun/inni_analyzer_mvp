@@ -1,82 +1,56 @@
 # utils_pdf_vector.py 
-import chromadb
 import fitz  # PyMuPDF
-from sentence_transformers import SentenceTransformer
 import streamlit as st
 import os
 from typing import List, Dict, Optional
 
-# pysqlite3 관련 코드 완전 제거
-
-# 전역 변수 초기화
+# 벡터 시스템 완전 비활성화 (메타 텐서 오류 방지)
 embedder = None
 collection = None
 chroma_client = None
 
 def initialize_vector_system():
-    """벡터 시스템 초기화 - 필요할 때만 호출"""
+    """벡터 시스템 초기화 - 간단 검색만 사용"""
     global embedder, collection, chroma_client
     
-    if embedder is not None and collection is not None:
-        return True
+    # 고급 벡터 시스템 완전 비활성화
+    embedder = None
+    collection = None
+    chroma_client = None
     
-    try:
-        # 1. 임베딩 모델 로드 (가볍고 무료)
-        embedder = SentenceTransformer("all-MiniLM-L6-v2")
-        
-        # 2. ChromaDB 인스턴스
-        chroma_client = chromadb.Client()
-        collection = chroma_client.get_or_create_collection("pdf_chunks")
-        
-        return True
-    except Exception as e:
-        st.error(f"❌ 벡터 시스템 초기화 실패: {e}")
-        return False
+    # 메시지 제거 - 조용히 True 반환
+    return True
 
 def search_pdf_chunks(query: str, pdf_id: str = "default", top_k: int = 3) -> str:
-    """고급 PDF 벡터 검색 함수 - 호환성 개선"""
-    
-    # 벡터 시스템 초기화
-    if not initialize_vector_system():
-        st.warning("⚠️ 고급 검색 시스템 초기화 실패, 간단 검색으로 전환")
-        return fallback_to_simple_search(query, pdf_id, top_k)
-    
+    """PDF 검색 함수 - 간단 검색만 사용"""
+    return fallback_to_simple_search(query, pdf_id, top_k)
+
+def save_pdf_chunks_to_chroma(pdf_path: str, pdf_id: str = "default") -> bool:
+    """PDF 청크를 간단 저장으로 처리"""
     try:
-        # 쿼리 임베딩 생성
-        q_embed = embedder.encode([query])[0].tolist()
+        # PDF 텍스트 추출
+        text = extract_text_from_pdf(pdf_path)
         
-        # 벡터 검색 실행
-        result = collection.query(
-            query_embeddings=[q_embed], 
-            n_results=top_k
-        )
+        if not text:
+            st.error("❌ PDF 텍스트 추출 실패")
+            return False
         
-        # 결과 처리
-        if (result and "documents" in result and 
-            result["documents"][0] and len(result["documents"][0]) > 0):
-            
-            chunks = result["documents"][0]
-            formatted_chunks = []
-            
-            for i, chunk in enumerate(chunks, 1):
-                # 청크 길이 제한 (너무 길면 잘라서 표시)
-                if len(chunk) > 500:
-                    chunk = chunk[:500] + "..."
-                formatted_chunks.append(f"📄 고급 검색 결과 {i}:\n{chunk}")
-            
-            return "\n---\n".join(formatted_chunks)
-        else:
-            st.info("ℹ️ 고급 검색에서 관련 정보를 찾을 수 없습니다.")
-            return "[고급 검색 결과 없음]"
-            
+        # 세션 상태에 저장
+        if 'pdf_chunks' not in st.session_state:
+            st.session_state.pdf_chunks = {}
+        
+        st.session_state.pdf_chunks[pdf_id] = text
+        st.success(f"✅ PDF가 저장되었습니다. (간단 모드)")
+        return True
+        
     except Exception as e:
-        st.error(f"❌ 고급 PDF 검색 오류: {e}")
-        return fallback_to_simple_search(query, pdf_id, top_k)
+        st.error(f"❌ PDF 저장 오류: {e}")
+        return False
 
 def fallback_to_simple_search(query: str, pdf_id: str, top_k: int) -> str:
-    """고급 검색 실패 시 간단 검색으로 폴백"""
+    """간단 검색 - 키워드 기반 검색"""
     try:
-        # 간단 검색 로직
+        # PDF 텍스트 확인
         if 'pdf_chunks' not in st.session_state or pdf_id not in st.session_state.pdf_chunks:
             return "[PDF가 로드되지 않았습니다. 먼저 PDF를 업로드해주세요.]"
         
@@ -112,8 +86,8 @@ def fallback_to_simple_search(query: str, pdf_id: str, top_k: int) -> str:
             return "[관련 정보를 찾을 수 없습니다.]"
             
     except Exception as e:
-        st.error(f"❌ 간단 검색 오류: {e}")
-        return "[검색 오류가 발생했습니다.]"
+        st.error(f"❌ 검색 오류: {e}")
+        return "[검색 중 오류가 발생했습니다.]"
 
 def pdf_to_chunks(pdf_path: str, chunk_size: int = 400) -> List[str]:
     """PDF를 청크로 분할"""
@@ -147,71 +121,6 @@ def pdf_to_chunks(pdf_path: str, chunk_size: int = 400) -> List[str]:
     except Exception as e:
         st.error(f"❌ PDF 청크 분할 오류: {e}")
         return []
-
-def save_pdf_chunks_to_chroma(pdf_path: str, pdf_id: str = "default") -> bool:
-    """PDF 청크를 ChromaDB에 저장"""
-    try:
-        # 벡터 시스템 초기화
-        if not initialize_vector_system():
-            st.warning("⚠️ 벡터 시스템 초기화 실패, 간단 저장으로 전환")
-            return fallback_to_simple_save(pdf_path, pdf_id)
-        
-        # PDF를 청크로 분할
-        chunks = pdf_to_chunks(pdf_path)
-        
-        if not chunks:
-            st.error("❌ PDF 청크 분할 실패")
-            return False
-        
-        # 청크를 세션 상태에 저장 (간단 검색용)
-        if 'pdf_chunks' not in st.session_state:
-            st.session_state.pdf_chunks = {}
-        
-        st.session_state.pdf_chunks[pdf_id] = "\n\n".join(chunks)
-        
-        # ChromaDB에 저장
-        try:
-            # 임베딩 생성
-            embeddings = embedder.encode(chunks)
-            
-            # ChromaDB에 저장
-            collection.add(
-                embeddings=embeddings.tolist(),
-                documents=chunks,
-                ids=[f"{pdf_id}_{i}" for i in range(len(chunks))]
-            )
-            
-            st.success(f"✅ PDF 청크 {len(chunks)}개가 ChromaDB에 저장되었습니다.")
-            return True
-            
-        except Exception as e:
-            st.error(f"❌ ChromaDB 저장 실패: {e}")
-            return fallback_to_simple_save(pdf_path, pdf_id)
-        
-    except Exception as e:
-        st.error(f"❌ PDF 저장 오류: {e}")
-        return False
-
-def fallback_to_simple_save(pdf_path: str, pdf_id: str) -> bool:
-    """ChromaDB 저장 실패 시 간단 저장으로 폴백"""
-    try:
-        # PDF 텍스트 추출
-        text = extract_text_from_pdf(pdf_path)
-        
-        if not text:
-            return False
-        
-        # 세션 상태에 저장
-        if 'pdf_chunks' not in st.session_state:
-            st.session_state.pdf_chunks = {}
-        
-        st.session_state.pdf_chunks[pdf_id] = text
-        st.success(f"✅ PDF가 간단 모드로 저장되었습니다.")
-        return True
-        
-    except Exception as e:
-        st.error(f"❌ 간단 저장 실패: {e}")
-        return False
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """PDF에서 텍스트 추출"""
