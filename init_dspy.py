@@ -2,28 +2,21 @@
 # init_dspy.py
 import dspy
 import os
-import streamlit as st
 from dotenv import load_dotenv
 from agent_executor import RequirementTableSignature  # 이것만 필요
+import anthropic
+from anthropic import Anthropic
 
 load_dotenv()
 
-# Streamlit Secrets에서 API 키 가져오기 (우선순위)
-try:
-    anthropic_api_key = st.secrets.get("ANTHROPIC_API_KEY")
-    if not anthropic_api_key:
-        # 환경 변수에서 가져오기 (로컬 개발용)
-        anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
-except:
-    # 환경 변수에서 가져오기 (로컬 개발용)
-    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
-
-# API 키 확인
+# Anthropic API 키 설정
+anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY')
 if not anthropic_api_key:
-    print("❌ ANTHROPIC_API_KEY가 설정되지 않았습니다!")
-    print("💡 Streamlit Cloud에서는 Settings → Secrets에서 설정하세요.")
     print("💡 로컬 개발에서는 .streamlit/secrets.toml 파일을 사용하세요.")
     raise ValueError("ANTHROPIC_API_KEY를 설정해주세요.")
+
+# Anthropic SDK 클라이언트 추가
+anthropic_client = Anthropic(api_key=anthropic_api_key)
 
 if not getattr(dspy.settings, "lm", None):
     try:
@@ -48,6 +41,36 @@ available_models = [
     "claude-3-haiku-20240307"      # 가벼운 Haiku
 ]
 
+def get_available_models_sdk():
+    """Anthropic SDK로 사용 가능한 모델 조회"""
+    try:
+        models = anthropic_client.models.list()
+        sdk_models = [model.id for model in models if 'claude' in model.id]
+        print(f"✅ SDK에서 {len(sdk_models)}개 모델 조회됨")
+        return sdk_models
+    except Exception as e:
+        print(f"⚠️ SDK 모델 목록 조회 실패: {e}")
+        return available_models  # 폴백
+
+def execute_with_sdk(prompt: str, model: str = None):
+    """Anthropic SDK로 직접 실행"""
+    if model is None:
+        model = "claude-3-5-sonnet-20241022"
+    
+    try:
+        response = anthropic_client.messages.create(
+            model=model,
+            max_tokens=4000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text
+    except anthropic.RateLimitError:
+        return "⚠️ Rate limit 도달. 잠시 후 다시 시도해주세요."
+    except anthropic.APIError as e:
+        return f"❌ API 오류: {e}"
+    except Exception as e:
+        return f"❌ 오류: {e}"
+
 def get_optimal_model(task_type: str) -> str:
     """작업 유형에 따른 최적 모델 선택"""
     model_mapping = {
@@ -59,11 +82,16 @@ def get_optimal_model(task_type: str) -> str:
     return model_mapping.get(task_type, "claude-3-5-sonnet-20241022")
 
 def configure_model(model_name: str):
-    """모델 동적 변경"""
+    """모델 동적 변경 - 스레드 안전 버전"""
     if model_name not in available_models:
         raise ValueError(f"지원하지 않는 모델: {model_name}")
     
     try:
+        # 기존 설정 제거
+        if hasattr(dspy.settings, "lm"):
+            delattr(dspy.settings, "lm")
+        
+        # 새 모델 설정
         lm = dspy.LM(
             model_name,
             provider="anthropic",
@@ -74,6 +102,17 @@ def configure_model(model_name: str):
         print(f"✅ 모델이 {model_name}로 변경되었습니다.")
     except Exception as e:
         print(f"❌ 모델 변경 실패: {e}")
+        # 기본 모델로 복구
+        try:
+            lm = dspy.LM(
+                "claude-3-5-sonnet-20241022",
+                provider="anthropic",
+                api_key=anthropic_api_key,
+                max_tokens=4000
+            )
+            dspy.configure(lm=lm, track_usage=True)
+        except:
+            pass
         raise
 
 def run_analysis_with_optimal_model(task_type: str, prompt: str, signature_class=None):

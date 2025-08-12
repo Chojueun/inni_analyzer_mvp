@@ -1,4 +1,4 @@
-from utils_pdf_vector import search_pdf_chunks  # 고급 버전으로 변경
+from utils_pdf import search_pdf_chunks  # 통합된 PDF 모듈 사용
 from search_helper import search_web_serpapi  # 주석 해제
 
 def get_web_search_for_block(block_id: str, user_inputs: dict) -> str:
@@ -55,12 +55,20 @@ def convert_dsl_to_prompt(
     previous_summary: str = "",
     pdf_summary: dict = None,
     site_fields: dict = None,
-    include_web_search: bool = True  # 웹 검색 포함 여부
+    include_web_search: bool = True
 ) -> str:
-    """최적화된 DSL을 프롬프트로 변환 (웹 검색 포함)"""
+    """완전히 개선된 DSL을 프롬프트로 변환"""
     
     dsl = dsl_block.get("content_dsl", {})
     prompt_parts = []
+    
+    # 0. 블록 ID 및 제목 명시 (새로 추가)
+    block_id = dsl_block.get("id", "")
+    block_title = dsl_block.get("title", "")
+    prompt_parts.append(f"# 🎯 현재 분석 블록\n")
+    prompt_parts.append(f"**블록 ID:** {block_id}\n")
+    prompt_parts.append(f"**블록 제목:** {block_title}\n")
+    prompt_parts.append(f"**분석 목적:** 이 블록만의 고유한 분석을 수행하세요.\n\n")
     
     # 1. 기본 역할 및 목표
     prompt_parts.append(f"# 🎯 분석 목표\n{dsl.get('goal', '')}")
@@ -138,44 +146,45 @@ def convert_dsl_to_prompt(
     project_info += f"- 프로젝트 목표: {user_inputs.get('project_goal', 'N/A')}\n"
     prompt_parts.append(project_info)
     
-    # 7. 사이트 분석 정보 (site_fields 활용)
+    # 7. 사이트 분석 정보
     if site_fields:
         site_text = f"# 🏗️ 사이트 분석 정보\n"
         for key, value in site_fields.items():
-            if value and str(value).strip():  # 빈 값이 아닌 경우만
-                # 키 이름을 더 읽기 쉽게 변환
+            if value and str(value).strip():
                 readable_key = key.replace('_', ' ').title()
                 site_text += f"- {readable_key}: {value}\n"
         prompt_parts.append(site_text)
     
-    # 8. 출력 구조
+    # 8. 출력 구조 - 강화된 버전
     output_structure = dsl.get('output_structure', [])
     if output_structure:
         structure_text = f"# 📋 출력 구조\n"
+        structure_text += f"**중요: 이 블록({block_title})의 고유한 분석만 수행하세요.**\n\n"
+        structure_text += f"다음 구조로 분석 결과를 제공하세요. 각 구조는 반드시 지정된 형식으로 작성하세요:\n\n"
+        
         for i, structure in enumerate(output_structure, 1):
-            structure_text += f"{i}. {structure}\n"
+            structure_text += f"## {i}. {structure}\n"
+            structure_text += f"[{structure}에 해당하는 내용만 여기에 작성]\n\n"
+        
+        structure_text += f"⚠️ **중요 지시사항:**\n"
+        structure_text += f"1. 각 구조는 반드시 '## 번호. 구조명' 형식으로 시작하세요\n"
+        structure_text += f"2. 각 구조의 내용은 해당 구조에만 관련된 내용으로 작성하세요\n"
+        structure_text += f"3. 모든 구조를 빠짐없이 작성하되, 내용이 중복되지 않도록 하세요\n"
+        structure_text += f"4. 구조 간 구분을 명확히 하세요\n"
+        structure_text += f"5. 각 구조는 독립적으로 완성된 내용이어야 합니다\n"
+        structure_text += f"6. **이 블록의 고유한 분석만 수행하고, 다른 블록의 내용을 포함하지 마세요**\n\n"
+        
         prompt_parts.append(structure_text)
     
-    # 9. 이전 분석 결과 (있는 경우)
+    # 9. 이전 분석 결과
     if previous_summary:
         prompt_parts.append(f"# 📚 이전 분석 결과\n{previous_summary}\n")
     
-    # 10. PDF 요약 (있는 경우)
+    # 10. PDF 요약
     if pdf_summary:
         prompt_parts.append(f"# 📄 PDF 문서 요약\n{pdf_summary}\n")
     
-    # 11. PDF 검색 결과 (기존 기능 유지)
-    if dsl_block.get("search_source") == "pdf_vector_db":
-        query_template = dsl_block.get("search_query_template", "주요 내용")
-        query = query_template.format(**user_inputs)
-        try:
-            pdf_chunks = search_pdf_chunks(query, top_k=3)
-            if pdf_chunks:
-                prompt_parts.append(f"# PDF 문서 관련 정보\n{pdf_chunks}\n")
-        except Exception as e:
-            pass
-    
-    # 웹 검색 결과 추가 (새로 추가)
+    # 11. 웹 검색 결과
     if include_web_search:
         web_search_results = get_web_search_for_block(dsl_block.get("id", ""), user_inputs)
         if web_search_results:

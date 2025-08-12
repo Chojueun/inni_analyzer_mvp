@@ -324,8 +324,8 @@ class AnalysisSystem:
             ),
             AnalysisStep(
                 id="context_analyzer",
-                title="프로젝트 컨텍스트 및 배경 분석",
-                description="프로젝트의 배경, 목적, 제약사항, 이해관계자, 지역적 특성 등을 종합 분석",
+                title="건축주 의도 및 문맥 AI 추론",
+                description="문서 내 언어 패턴, 강조 표현, 문맥을 통해 건축주(발주처)의 암묵적 의도 및 우선순위를 AI로 추론",
                 is_required=True,
                 order=2,
                 category="컨텍스트분석"

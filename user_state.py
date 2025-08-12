@@ -70,12 +70,6 @@ def get_user_inputs():
         "project_goal": st.session_state.get("project_goal", "")
     }
 
-def set_pdf_summary(summary: str):
-    st.session_state.pdf_summary = summary
-
-def get_pdf_summary() -> str:
-    return st.session_state.pdf_summary
-
 def save_step_result(step_id: str, result: str):
     st.session_state.step_results[step_id] = result
 

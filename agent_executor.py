@@ -5,7 +5,7 @@ from dspy.teleprompt.bootstrap import BootstrapFewShot
 from dspy.predict.react import ReAct
 from init_dspy import *
 
-# --- 요구사항표 Signature & ReAct 클래스
+# --- 기존 Signature & ReAct 클래스들 (유지)
 class RequirementTableSignature(Signature):
     input = InputField(desc="분석 목표, PDF, 맥락 등")
     requirement_table = OutputField(desc="요구사항 정리 또는 핵심 요약 표 형식 출력. 항목별 구분 및 단위 포함")
@@ -75,6 +75,31 @@ class AdvancedAnalysisPipeline(Module):
         strategy_result = self.strategy_generator(input + req_result + reasoning_result)
         return strategy_result
 
+# --- 새로운 Anthropic SDK 기반 실행 함수들
+def execute_agent_sdk(prompt: str, model: str = None):
+    """Anthropic SDK를 사용한 일반적인 AI 에이전트 실행 함수"""
+    return execute_with_sdk(prompt, model)
+
+def execute_agent_hybrid(prompt: str, model: str = None, use_sdk: bool = True):
+    """하이브리드 실행: SDK 우선, 실패 시 DSPy 폴백"""
+    if use_sdk:
+        try:
+            result = execute_with_sdk(prompt, model)
+            if result and not result.startswith("❌") and not result.startswith("⚠️"):
+                return result
+        except Exception as e:
+            print(f"SDK 실행 실패, DSPy로 폴백: {e}")
+    
+    # DSPy 폴백
+    try:
+        result = dspy.Predict(OptimizationConditionSignature)(input=prompt)
+        value = getattr(result, "optimization_analysis", "")
+        if not value or value.strip() == "" or "error" in value.lower():
+            return "⚠️ 결과 생성 실패: AI 분석이 정상적으로 생성되지 않았습니다."
+        return value
+    except Exception as e:
+        return f"❌ 오류: {e}"
+
 # --- 기존 함수들 (하위 호환성 유지)
 def run_requirement_table(full_prompt):
     try:
@@ -117,7 +142,7 @@ def run_strategy_recommendation(full_prompt):
         return f"❌ 오류: {e}"
 
 def execute_agent(prompt):
-    """일반적인 AI 에이전트 실행 함수"""
+    """기존 DSPy 기반 실행 함수 (하위 호환성)"""
     try:
         result = dspy.Predict(OptimizationConditionSignature)(input=prompt)
         value = getattr(result, "optimization_analysis", "")
