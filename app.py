@@ -280,8 +280,8 @@ if not st.session_state.get('show_project_info', True):
     blocks = load_prompt_blocks()
     extra_blocks = blocks["extra"]
     
-    # 건축설계 발표용 Narrative와 ArchiRender GPT 제외
-    excluded_ids = {"claude_narrative", "midjourney_prompt"}
+    # Narrative와 ArchiRender GPT 모두 탭에서 직접 처리하므로 제외 목록 비움
+    excluded_ids = set()
     available_blocks = [block for block in extra_blocks if block["id"] not in excluded_ids]
     
     # 현재 선택된 단계들 (제거된 단계 제외)

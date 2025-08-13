@@ -268,7 +268,6 @@ def generate_report_content(report_type, include_charts, include_recommendations
         
         elif report_type == "요약 보고서":
             # 요약 보고서: 핵심 요약과 인사이트만
-            report_content += "## 📊 분석 결과 요약\n"
             for i, history in enumerate(st.session_state.cot_history, 1):
                 report_content += f"""
 ### {i}. {history['step']}

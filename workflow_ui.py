@@ -539,6 +539,150 @@ def render_analysis_execution():
                                 st.session_state.show_feedback = True
                                 st.rerun()
                         
+                        # 피드백 입력 UI
+                        if st.session_state.get('show_feedback', False):
+                            st.markdown("---")
+                            st.markdown("#### 💬 피드백 입력")
+                            
+                            # 피드백 유형 선택
+                            feedback_type = st.selectbox(
+                                "피드백 유형 선택:",
+                                ["추가 분석 요청", "수정 요청", "다른 관점 제시", "구조 변경", "기타"],
+                                key=f"feedback_type_{current_step.id}"
+                            )
+                            
+                            # 피드백 내용 입력
+                            feedback_input = st.text_area(
+                                "피드백 내용을 입력해주세요:",
+                                placeholder="개선하고 싶은 부분이나 추가 요청사항을 자유롭게 작성해주세요...",
+                                height=150,
+                                key=f"feedback_input_{current_step.id}"
+                            )
+                            
+                            # 피드백 제출 버튼
+                            if st.button("💬 피드백 제출", key=f"submit_feedback_{current_step.id}"):
+                                if feedback_input.strip():
+                                    with st.spinner("피드백을 처리하고 있습니다..."):
+                                        try:
+                                            # 피드백 처리 프롬프트 생성
+                                            current_results = st.session_state.current_step_outputs
+                                            original_result = current_results.get("original_result", "")
+                                            if not original_result:
+                                                # 원본 결과가 없으면 현재 결과를 원본으로 저장
+                                                original_result = "\n\n".join([
+                                                    f"**{key}**: {value}" 
+                                                    for key, value in current_results.items() 
+                                                    if key != "saved" and key != "original_result" and key != "updated_result" and key != "feedback_applied"
+                                                ])
+                                                st.session_state.current_step_outputs["original_result"] = original_result
+                                            
+                                            feedback_prompt = f"""
+기존 분석 결과:
+{original_result}
+
+사용자 피드백:
+- 유형: {feedback_type}
+- 내용: {feedback_input}
+
+위 피드백을 바탕으로 기존 분석 결과를 수정하거나 보완해주세요.
+피드백의 의도를 정확히 파악하여 적절한 수정을 제시해주세요.
+
+요청사항:
+1. 기존 분석 결과를 바탕으로 사용자의 피드백을 반영한 수정된 분석을 제공해주세요.
+2. 피드백 유형에 따라 적절한 수정 방향을 제시해주세요:
+   - 추가 분석 요청: 더 자세한 분석이나 새로운 관점 추가
+   - 수정 요청: 기존 내용의 오류나 부족한 부분 수정
+   - 다른 관점 제시: 새로운 시각이나 접근 방법 제시
+   - 구조 변경: 분석 구조나 형식의 변경
+   - 기타: 특별한 요청사항에 따른 맞춤형 수정
+3. 수정된 결과는 기존 분석의 맥락을 유지하면서 피드백을 반영한 형태로 제공해주세요.
+"""
+                                            
+                                            # 피드백 처리 실행
+                                            from agent_executor import execute_agent
+                                            updated_result = execute_agent(feedback_prompt)
+                                            
+                                            # 업데이트된 결과 저장
+                                            st.session_state.current_step_outputs["updated_result"] = updated_result
+                                            st.session_state.current_step_outputs["feedback_applied"] = True
+                                            
+                                            # 피드백 히스토리에 추가
+                                            if "feedback_history" not in st.session_state:
+                                                st.session_state.feedback_history = []
+                                            
+                                            st.session_state.feedback_history.append({
+                                                "step": current_step.title,
+                                                "feedback_type": feedback_type,
+                                                "feedback_content": feedback_input,
+                                                "ai_response": updated_result,
+                                                "timestamp": time.time()
+                                            })
+                                            
+                                            # cot_history 업데이트 (마지막 항목을 업데이트된 결과로 교체)
+                                            if st.session_state.cot_history:
+                                                st.session_state.cot_history[-1]["result"] = updated_result
+                                                # utils에서 함수들을 안전하게 import하여 사용
+                                                try:
+                                                    from utils import extract_summary, extract_insight
+                                                    st.session_state.cot_history[-1]["summary"] = extract_summary(updated_result)
+                                                    st.session_state.cot_history[-1]["insight"] = extract_insight(updated_result)
+                                                except Exception as summary_error:
+                                                    st.warning(f"⚠️ 요약 생성 중 오류: {summary_error}")
+                                                    st.session_state.cot_history[-1]["summary"] = updated_result[:300] + "..."
+                                                    st.session_state.cot_history[-1]["insight"] = "요약 생성 실패"
+                                            
+                                            st.success("✅ 피드백이 처리되었습니다!")
+                                            st.info(" 피드백이 적용된 결과가 아래에 표시됩니다.")
+                                            
+                                            # 피드백 적용된 결과 즉시 표시
+                                            st.markdown("#### ✨ 피드백 적용된 결과")
+                                            st.markdown(updated_result)
+                                            
+                                        except Exception as e:
+                                            st.error(f"❌ 피드백 처리 중 오류가 발생했습니다: {e}")
+                                            st.error("오류 상세 정보:")
+                                            st.error(f"- 함수: execute_agent")
+                                            st.error(f"- 매개변수: {len(feedback_prompt)} 문자")
+                                            st.error(f"- 피드백 유형: {feedback_type}")
+                                            st.error(f"- 피드백 내용: {feedback_input[:100]}...")
+                                            st.error(f"- 오류 타입: {type(e).__name__}")
+                                            st.error(f"- 오류 위치: {e.__traceback__.tb_lineno if hasattr(e, '__traceback__') else 'N/A'}")
+                                else:
+                                    st.warning("⚠️ 피드백 내용을 입력해주세요.")
+                            
+                            # 피드백 히스토리 표시
+                            if st.session_state.get("feedback_history"):
+                                st.markdown("#### 📋 피드백 히스토리")
+                                for i, feedback in enumerate(st.session_state.feedback_history[-3:], 1):  # 최근 3개만 표시
+                                    with st.expander(f"피드백 {i}: {feedback['feedback_type']}", expanded=False):
+                                        st.markdown(f"**피드백**: {feedback['feedback_content']}")
+                                        st.markdown(f"**AI 응답**: {feedback['ai_response'][:300]}...")
+                            
+                            # 다시 분석 버튼 (원본 결과로 되돌리기)
+                            if st.session_state.get('current_step_outputs', {}).get("feedback_applied"):
+                                if st.button("🔄 원본 결과로 되돌리기", key=f"revert_original_{current_step.id}"):
+                                    st.session_state.current_step_outputs["feedback_applied"] = False
+                                    if st.session_state.cot_history:
+                                        # 원본 결과로 되돌리기
+                                        original_result = st.session_state.current_step_outputs.get("original_result", "")
+                                        if original_result:
+                                            try:
+                                                from utils import extract_summary, extract_insight
+                                                st.session_state.cot_history[-1]["result"] = original_result
+                                                st.session_state.cot_history[-1]["summary"] = extract_summary(original_result)
+                                                st.session_state.cot_history[-1]["insight"] = extract_insight(original_result)
+                                            except Exception as summary_error:
+                                                st.warning(f"⚠️ 원본 요약 생성 중 오류: {summary_error}")
+                                                st.session_state.cot_history[-1]["result"] = original_result
+                                                st.session_state.cot_history[-1]["summary"] = original_result[:300] + "..."
+                                                st.session_state.cot_history[-1]["insight"] = "원본 요약 생성 실패"
+                                    st.rerun()
+                            
+                            # 피드백 취소 버튼
+                            if st.button("❌ 피드백 취소", key=f"cancel_feedback_{current_step.id}"):
+                                st.session_state.show_feedback = False
+                                st.rerun()
+                        
                         with col3:
                             if current_step_index > 0:
                                 if st.button("⬅️ 이전 단계", key=f"prev_{current_step.id}_{current_step_index}"):
@@ -692,6 +836,110 @@ def render_analysis_execution():
             with col2:
                 if st.button("💬 피드백", key=f"feedback_completed_{current_step.id}_{current_step_index}"):
                     st.session_state.show_feedback = True
+                    st.rerun()
+            
+            # 완료된 단계에 대한 피드백 입력 UI
+            if st.session_state.get('show_feedback', False):
+                st.markdown("---")
+                st.markdown("#### 💬 피드백 입력")
+                
+                # 피드백 유형 선택
+                feedback_type = st.selectbox(
+                    "피드백 유형 선택:",
+                    ["추가 분석 요청", "수정 요청", "다른 관점 제시", "구조 변경", "기타"],
+                    key=f"feedback_type_completed_{current_step.id}"
+                )
+                
+                # 피드백 내용 입력
+                feedback_input = st.text_area(
+                    "피드백 내용을 입력해주세요:",
+                    placeholder="개선하고 싶은 부분이나 추가 요청사항을 자유롭게 작성해주세요...",
+                    height=150,
+                    key=f"feedback_input_completed_{current_step.id}"
+                )
+                
+                # 피드백 제출 버튼
+                if st.button("💬 피드백 제출", key=f"submit_feedback_completed_{current_step.id}"):
+                    if feedback_input.strip():
+                        with st.spinner("피드백을 처리하고 있습니다..."):
+                            try:
+                                # 피드백 처리 프롬프트 생성
+                                step_result = next((h['result'] for h in st.session_state.cot_history if h['step'] == current_step.title), "")
+                                
+                                feedback_prompt = f"""
+기존 분석 결과:
+{step_result}
+
+사용자 피드백:
+- 유형: {feedback_type}
+- 내용: {feedback_input}
+
+위 피드백을 바탕으로 기존 분석 결과를 수정하거나 보완해주세요.
+피드백의 의도를 정확히 파악하여 적절한 수정을 제시해주세요.
+
+요청사항:
+1. 기존 분석 결과를 바탕으로 사용자의 피드백을 반영한 수정된 분석을 제공해주세요.
+2. 피드백 유형에 따라 적절한 수정 방향을 제시해주세요:
+   - 추가 분석 요청: 더 자세한 분석이나 새로운 관점 추가
+   - 수정 요청: 기존 내용의 오류나 부족한 부분 수정
+   - 다른 관점 제시: 새로운 시각이나 접근 방법 제시
+   - 구조 변경: 분석 구조나 형식의 변경
+   - 기타: 특별한 요청사항에 따른 맞춤형 수정
+3. 수정된 결과는 기존 분석의 맥락을 유지하면서 피드백을 반영한 형태로 제공해주세요.
+"""
+                                
+                                # 피드백 처리 실행
+                                from agent_executor import execute_agent
+                                updated_result = execute_agent(feedback_prompt)
+                                
+                                # cot_history 업데이트
+                                for h in st.session_state.cot_history:
+                                    if h['step'] == current_step.title:
+                                        h['result'] = updated_result
+                                        try:
+                                            from utils import extract_summary, extract_insight
+                                            h['summary'] = extract_summary(updated_result)
+                                            h['insight'] = extract_insight(updated_result)
+                                        except Exception as summary_error:
+                                            h['summary'] = updated_result[:300] + "..."
+                                            h['insight'] = "요약 생성 실패"
+                                        break
+                                
+                                # 피드백 히스토리에 추가
+                                if "feedback_history" not in st.session_state:
+                                    st.session_state.feedback_history = []
+                                
+                                st.session_state.feedback_history.append({
+                                    "step": current_step.title,
+                                    "feedback_type": feedback_type,
+                                    "feedback_content": feedback_input,
+                                    "ai_response": updated_result,
+                                    "timestamp": time.time()
+                                })
+                                
+                                st.success("✅ 피드백이 처리되었습니다!")
+                                st.info(" 피드백이 적용된 결과가 아래에 표시됩니다.")
+                                
+                                # 피드백 적용된 결과 즉시 표시
+                                st.markdown("#### ✨ 피드백 적용된 결과")
+                                st.markdown(updated_result)
+                                
+                            except Exception as e:
+                                st.error(f"❌ 피드백 처리 중 오류가 발생했습니다: {e}")
+                    else:
+                        st.warning("⚠️ 피드백 내용을 입력해주세요.")
+                
+                # 피드백 히스토리 표시
+                if st.session_state.get("feedback_history"):
+                    st.markdown("#### 📋 피드백 히스토리")
+                    for i, feedback in enumerate(st.session_state.feedback_history[-3:], 1):
+                        with st.expander(f"피드백 {i}: {feedback['feedback_type']}", expanded=False):
+                            st.markdown(f"**피드백**: {feedback['feedback_content']}")
+                            st.markdown(f"**AI 응답**: {feedback['ai_response'][:300]}...")
+                
+                # 피드백 취소 버튼
+                if st.button("❌ 피드백 취소", key=f"cancel_feedback_completed_{current_step.id}"):
+                    st.session_state.show_feedback = False
                     st.rerun()
             
             with col3:
@@ -1105,12 +1353,12 @@ def render_claude_narrative_tab():
                     for h in st.session_state.cot_history
                 ])
                 
-                # Narrative 생성 프롬프트를 소설처럼 감성적이고 몰입감 있게 개선
+                # Narrative 생성 프롬프트를 더 명확하게 수정
                 narrative_prompt = f"""
-당신은 건축설계 발표용 Narrative를 작성하는 소설가입니다. 
-기술적 분석이나 딱딱한 설명이 아닌, 소설처럼 감성적이고 몰입감 있는 스토리로 작성해주세요.
+당신은 건축설계 발표용 Narrative를 작성하는 전문가입니다. 
+아래의 정확한 구조와 가이드라인에 따라 8단계로 구성된 Narrative를 작성해주세요.
 
-프로젝트 정보:
+##  프로젝트 정보
 - 프로젝트명: {project_name}
 - 건물 유형: {building_type}
 - 건축주: {owner}
@@ -1121,7 +1369,7 @@ def render_claude_narrative_tab():
 - 주변 환경: {surrounding_env}
 - 지역적 맥락: {regional_context}
 
-Narrative 방향 설정:
+##  선택된 방향성
 1. 감성/논리 비율: {emotion_logic_ratio}
 2. 서술 스타일: {narrative_tone}
 3. 키 메시지 방향: {key_message_direction}
@@ -1129,43 +1377,57 @@ Narrative 방향 설정:
 5. 내러티브 전개 방식: {narrative_structure}
 6. 강조 설계 요소: {', '.join(design_elements)}
 
-분석 결과:
+## 📊 분석 결과
 {analysis_summary}
 
-위 정보를 바탕으로 소설처럼 감성적이고 몰입감 있는 Narrative를 작성해주세요.
+## 📝 반드시 따라야 할 Narrative 구조
 
-중요한 지시사항:
-1. 소설처럼 감성적이고 몰입감 있는 서술
-2. "이 땅에서 발견한 세 가지 진실" 같은 스토리적 접근
-3. 구체적인 공간 경험과 사용자 여정을 소설처럼 묘사
-4. 건축적 해답을 스토리로 풀어내기
-5. 청중의 감정을 움직이는 서술 방식 사용
-6. 기술적 설명이 아닌 감성적 서술
+**중요: 아래 8개 Part를 정확히 이 순서대로 작성하세요. 각 Part는 반드시 제목과 함께 작성하세요.**
 
-예시 스타일:
-- "첫 번째 진실 - 자연의 품: 북측 공원과 남측 한강이 품어주는 이 땅은..."
-- "자연이 건네는 설계 언어: 북측 공원의 속삭임 '경계를 허물어라...'"
-- "100년 헤리티지, 100년 비전: 과거를 품다, 현재를 살다, 미래를 열다"
-- "땅에서 자란 나무처럼: 뿌리(Root) - 땅에서 자란 네 그루 나무"
-- "매 순간이 특별한 여정: 아침 7시 - 새로운 시작"
+### Part 1.  프로젝트 기본 정보
+프로젝트의 핵심 정보를 간결하고 임팩트 있게 정리하세요. 발주처 특성과 프로젝트 규모를 강조하세요.
 
-다음 구조로 소설처럼 감성적이고 몰입감 있는 Narrative를 작성해주세요:
+### Part 2.  Core Story: 완벽한 교집합의 발견
+선택된 키 메시지 방향({key_message_direction})에 따라 핵심 스토리를 구성하세요. 감성/논리 비율({emotion_logic_ratio})에 맞는 톤으로 서술하세요.
 
-Part 1.  프로젝트 기본 정보
-Part 2.  Core Story: 땅이 말하는 미래
-Part 3. 📍 땅이 주는 답: The Rooted Future
-Part 4. 🏢 {owner}이 꿈꾸는 미래
-Part 5. 💡 [컨셉명] 컨셉의 건축적 구현
-Part 6. ️ 건축적 해답: 네 가지 핵심 전략
-Part 7. 🎯 공간 시나리오: 하루의 여정
-Part 8. 🎯 결론: 왜 이 제안인가?
+### Part 3. 📍 땅이 주는 답
+Context-Driven 방식으로 대지와 지역적 맥락을 분석하세요. "이 땅에서 발견한 진실" 같은 스토리적 접근을 사용하세요.
 
-소설처럼 감성적이고 몰입감 있는 스토리텔링으로 작성해주세요.
+### Part 4. 🏢 {owner}이 원하는 미래
+Vision 중심으로 발주처의 꿈과 비전을 표현하세요. 발주처 특성({owner_type})에 맞는 미래 시나리오를 제시하세요.
+
+### Part 5.  [컨셉명] 컨셉의 탄생
+키워드 기반으로 설계 컨셉의 탄생 과정을 서술하세요. 선택된 건축적 가치 우선순위({architectural_value})를 반영하세요.
+
+### Part 6. ️ 교집합이 만든 건축적 해답
+선택된 내러티브 전개 방식({narrative_structure})을 적용하세요. 강조할 설계 요소({', '.join(design_elements)})들을 중심으로 건축적 해답을 제시하세요.
+
+### Part 7. 🎯 Winning Narrative 구성
+선택된 서술 스타일({narrative_tone})과 톤을 완전히 적용하세요. 설득력 있고 감동적인 발표용 톤으로 구성하세요.
+
+### Part 8. 🎯 결론: 완벽한 선택의 이유
+모든 선택사항이 만든 완벽한 조합의 이유를 설명하세요. 청중에게 남길 강력한 최종 메시지를 제시하세요.
+
+## ⚠️ 필수 지시사항
+1. **구조 준수**: 반드시 8개 Part를 위 순서대로 작성하세요
+2. **제목 포함**: 각 Part는 반드시 제목(예: "### Part 1. 📋 프로젝트 기본 정보")과 함께 작성하세요
+3. **선택사항 반영**: 모든 선택된 방향성을 해당 Part에 반영하세요
+4. **소설적 서술**: 기술적 설명이 아닌 감성적 스토리텔링으로 작성하세요
+5. **일관성 유지**: 전체적으로 일관된 톤과 스타일을 유지하세요
+
+## 🎨 작성 스타일 가이드
+- 소설처럼 감성적이고 몰입감 있는 서술
+- "이 땅에서 발견한 진실" 같은 스토리적 접근
+- 구체적인 공간 경험과 사용자 여정을 생생하게 묘사
+- 건축적 해답을 스토리로 풀어내기
+- 청중의 감정을 움직이는 서술 방식
+
+위 가이드라인을 정확히 따라 8단계 구조화된 Narrative를 작성해주세요.
 """
                 
-                # Narrative 생성 함수 호출
-                from agent_executor import execute_agent
-                narrative_result = execute_agent(narrative_prompt)
+                # Narrative 생성 함수 호출 - 올바른 함수 사용
+                from agent_executor import generate_narrative
+                narrative_result = generate_narrative(narrative_prompt)
                 
                 # 결과 표시
                 st.success("✅ Narrative 생성 완료!")
@@ -1225,25 +1487,68 @@ def render_midjourney_prompt_tab():
                     for h in st.session_state.cot_history
                 ])
                 
-                # 이미지 생성 프롬프트
+                # 개선된 이미지 생성 프롬프트
                 image_prompt = f"""
-프로젝트 정보:
+당신은 건축 이미지 생성 전문가입니다. 분석 결과를 바탕으로 Midjourney에서 사용할 수 있는 구체적이고 효과적인 프롬프트를 생성해주세요.
+
+##  프로젝트 정보
 - 프로젝트명: {st.session_state.get('project_name', '')}
 - 건물 유형: {st.session_state.get('building_type', '')}
 - 대지 위치: {st.session_state.get('site_location', '')}
 - 건축주: {st.session_state.get('owner', '')}
 - 대지 면적: {st.session_state.get('site_area', '')}
 
-분석 결과:
+## 📊 분석 결과
 {analysis_summary}
 
-이미지 생성 요청:
+##  이미지 생성 요청
 - 이미지 유형: {image_type}
 - 스타일: {', '.join(style_preference) if style_preference else '기본'}
 - 추가 설명: {additional_description}
 
-위 정보를 바탕으로 Midjourney에서 사용할 수 있는 상세하고 구체적인 이미지 생성 프롬프트를 생성해주세요.
-프롬프트는 영어로 작성하고, 건축적 특성을 잘 반영하도록 해주세요.
+##  출력 형식
+
+**한글 설명:**
+[이미지에 대한 한글 설명 - 건축적 특징, 분위기, 핵심 요소 등]
+
+**English Midjourney Prompt:**
+[구체적이고 실행 가능한 영어 프롬프트]
+
+##  프롬프트 생성 가이드라인
+
+**이미지 유형별 키워드:**
+- **외관 렌더링**: building facade, exterior view, architectural elevation, material texture
+- **내부 공간**: interior space, indoor lighting, furniture arrangement, spatial atmosphere
+- **마스터플랜**: master plan, site layout, landscape design, circulation plan
+- **상세도**: architectural detail, construction detail, material junction
+- **컨셉 이미지**: concept visualization, mood board, artistic expression
+- **조감도**: aerial view, bird's eye view, overall building form, site context
+
+**스타일별 키워드:**
+- **현대적**: modern, contemporary, clean lines, minimalist
+- **미니멀**: minimal, simple, uncluttered, essential elements
+- **자연친화적**: sustainable, green building, organic, eco-friendly
+- **고급스러운**: luxury, premium, sophisticated, elegant
+- **기능적**: functional, practical, efficient, user-friendly
+- **예술적**: artistic, creative, expressive, innovative
+- **상업적**: commercial, business-oriented, professional
+
+**기술적 키워드:**
+- architectural photography, professional rendering, hyperrealistic, 8k, high quality
+- wide angle, natural lighting, golden hour, dramatic shadows, ambient lighting
+- architectural visualization, photorealistic, modern design
+
+**프롬프트 구조:**
+[이미지 종류] + [건축 스타일] + [공간 유형] + [재료/텍스처] + [조명/분위기] + [환경/맥락] + [기술적 키워드] + [이미지 비율]
+
+## ⚠️ 중요 지시사항
+1. **분석 결과 반영**: 반드시 분석 결과의 건축적 특징을 프롬프트에 반영
+2. **구체성**: 추상적이 아닌 구체적이고 실행 가능한 프롬프트 생성
+3. **건축적 정확성**: 실제 건축물의 구조와 형태를 정확히 반영
+4. **시각적 임팩트**: 조형적 아름다움과 상징성을 강조
+5. **환경적 맥락**: 주변 환경과의 조화로운 관계 표현
+
+위 가이드라인에 따라 한글 설명과 영어 Midjourney 프롬프트를 생성해주세요.
 """
                 
                 # Claude API 호출
@@ -1399,13 +1704,7 @@ def render_report_generation_tab():
     """
     st.markdown(project_info_text)
     
-    # 분석 결과 요약
-    st.markdown("#### 📊 분석 결과 요약")
-    if st.session_state.get('cot_history'):
-        for i, history in enumerate(st.session_state.cot_history, 1):
-            st.markdown(f"**{i}. {history.get('step', f'단계 {i}')}**")
-            st.markdown(f"요약: {history.get('summary', '')}")
-            st.markdown("---")
+    # 분석 결과 요약 제거 - 중복되는 부분 삭제
 
 def parse_analysis_result_by_structure(result: str, output_structure: list) -> dict:
     """완전히 개선된 분석 결과 파싱 함수"""
@@ -1549,11 +1848,61 @@ def generate_optimization_analysis(user_inputs, cot_history):
 - 대지 위치: {user_inputs.get('site_location', '')}
 - 건축주: {user_inputs.get('owner', '')}
 - 대지 면적: {user_inputs.get('site_area', '')}
+- 프로젝트 목표: {user_inputs.get('project_goal', '')}
 
 분석 결과:
 {analysis_summary}
 
-위 정보를 바탕으로 매스별 최적화 조건을 분석해주세요.
+위 정보를 바탕으로 매스별 최적화 조건을 자동으로 분석해주세요.
+
+분석 요청사항:
+1. **매스별 중요 프로그램 식별**: 각 매스에서 어떤 프로그램이 가장 중요한지 분석
+2. **매스별 최적화 조건**: 각 매스의 특성에 따른 최적화 조건 제시
+3. **프로그램별 우선순위**: 매스 내에서 프로그램들의 우선순위 분석
+
+각 매스별로 다음 항목들을 분석해주세요:
+
+1. **인지성**: 외부 인식, 동선 유도
+2. **프라이버시**: 외부 시야 차단 필요성
+3. **프로그램 연계 필요성**: 다른 공간과의 인접 배치 필요성
+4. **보안성**: 출입구·코어·방문자 제어
+5. **조망/채광 민감도**: 전망 확보, 자연광 필요 여부
+6. **향후 확장 가능성**: 평면 또는 프로그램 확장 가능성
+7. **동선 분리성**: 방문객 vs 연수생 vs 운영자
+8. **구조적 유연성**: 스팬, 기둥 배치, 무주공간 등 구조 제약 수준
+9. **이용 시간대 특성**: 주간/야간 사용 구분, 겹침 여부
+10. **대지 조건 연계성**: 경사, 조망, 레벨차 등 대지와의 물리적 적합성
+
+각 항목에 대해 다음을 포함해주세요:
+- 목적 (purpose)
+- 중요도 (importance: 높음/중간/낮음)
+- 고려사항 (considerations)
+- 해당 매스에서의 특별한 고려사항
+
+분석 결과는 다음 형식으로 제시해주세요:
+
+## 매스별 최적화 조건 분석 결과
+
+### [매스명 1]
+#### 1. 인지성
+- **목적**: [목적 설명]
+- **중요도**: [높음/중간/낮음]
+- **고려사항**: [고려사항]
+- **특별 고려사항**: [해당 매스 특성]
+
+#### 2. 프라이버시
+- **목적**: [목적 설명]
+- **중요도**: [높음/중간/낮음]
+- **고려사항**: [고려사항]
+- **특별 고려사항**: [해당 매스 특성]
+
+[이하 3-10번 항목 동일한 형식으로 계속...]
+
+### [매스명 2]
+[동일한 형식으로 계속...]
+
+## 종합 최적화 전략
+[전체 매스에 대한 종합적인 최적화 전략 제시]
 """
     
     return execute_agent(optimization_prompt)
