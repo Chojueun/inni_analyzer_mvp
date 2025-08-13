@@ -1,0 +1,4 @@
+# System packages for Streamlit Cloud deployment
+fontconfig
+libfreetype6
+libpng16-16

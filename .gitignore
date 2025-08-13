@@ -31,8 +31,7 @@ desktop.ini
 *.bak
 *.tmp
 
-# Streamlit
-.streamlit/config.toml
+# Streamlit secrets only (config.toml은 포함)
 .streamlit/secrets.toml
 
 # Test cache

@@ -394,11 +394,32 @@ def render_analysis_execution():
         if current_step.id in blocks_by_id:
             current_block = blocks_by_id[current_step.id]
         
-        st.markdown(f"### 🔍 현재 단계: {current_step.title}")
-        st.markdown(f"**설명**: {current_step.description}")
-        
         # 현재 단계의 분석 상태 확인
         step_completed = any(h['step'] == current_step.title for h in st.session_state.get('cot_history', []))
+        
+        # 웹 검색 설정 초기화
+        if 'web_search_settings' not in st.session_state:
+            st.session_state.web_search_settings = {}
+        
+        # 현재 단계 표시 및 웹 검색 체크박스
+        col1, col2 = st.columns([4, 1])
+        
+        with col1:
+            st.markdown(f"### 🔍 현재 단계: {current_step.title}")
+            st.markdown(f"**설명**: {current_step.description}")
+        
+        with col2:
+            # 웹 검색 체크박스
+            web_search_key = f"web_search_{current_step.id}"
+            if web_search_key not in st.session_state.web_search_settings:
+                st.session_state.web_search_settings[web_search_key] = False
+            
+            st.session_state.web_search_settings[web_search_key] = st.checkbox(
+                "🌐 웹 검색 포함",
+                value=st.session_state.web_search_settings[web_search_key],
+                key=web_search_key,
+                help="이 단계에서 최신 웹 검색 결과를 포함하여 분석합니다."
+            )
         
         # 분석 실행 버튼 (항상 표시)
         if current_block:
@@ -426,6 +447,10 @@ def render_analysis_execution():
                 # 사용자 입력 정보 가져오기
                 user_inputs = get_user_inputs()
                 
+                # 웹 검색 설정 가져오기
+                web_search_key = f"web_search_{current_step.id}"
+                include_web_search = st.session_state.web_search_settings.get(web_search_key, False)
+                
                 # 분석 실행 부분에 디버깅 정보 추가
                 with st.spinner(f"{current_block['title']} 분석 중..."):
                     # DSL을 프롬프트로 변환
@@ -436,15 +461,19 @@ def render_analysis_execution():
                     if st.session_state.get('cot_history'):
                         previous_results = "\n\n".join([f"**{h['step']}**: {h['result']}" for h in st.session_state.cot_history])
                     
-                    # 프롬프트 생성
+                    # 프롬프트 생성 (웹 검색 설정 반영)
                     prompt = convert_dsl_to_prompt(
                         dsl_block=current_block,
                         user_inputs=user_inputs,
                         previous_summary=previous_results,
                         pdf_summary=pdf_summary,
                         site_fields=st.session_state.get('site_fields', {}),
-                        include_web_search=False
+                        include_web_search=include_web_search  # ✅ 사용자 선택 반영
                     )
+                    
+                    # 웹 검색 상태 표시
+                    if include_web_search:
+                        st.info("🌐 웹 검색이 포함된 분석을 실행합니다...")
                     
                     # Claude 분석 실행
                     result = execute_claude_analysis(prompt, current_block['title'])
