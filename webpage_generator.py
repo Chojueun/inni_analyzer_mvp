@@ -9,17 +9,22 @@
 """
 
 import streamlit as st
+import re
 from datetime import datetime
 from typing import Dict, List
 
 def process_analysis_content(result: str) -> str:
-    """분석 결과를 더 읽기 쉽게 구조화"""
+    """분석 결과를 더 읽기 쉽게 구조화 - 표 처리 개선"""
     paragraphs = result.split('\n\n')
     formatted_paragraphs = []
     
     for para in paragraphs:
         if para.strip():
-            if para.startswith('#') or para.startswith('##'):
+            # 표 형식 감지 및 처리
+            if is_table_format(para):
+                table_html = convert_to_html_table(para)
+                formatted_paragraphs.append(table_html)
+            elif para.startswith('#') or para.startswith('##'):
                 formatted_paragraphs.append(f'<h3 class="content-subtitle">{para.strip("# ")}</h3>')
             elif para.startswith('-') or para.startswith('•'):
                 items = para.split('\n')
@@ -33,6 +38,91 @@ def process_analysis_content(result: str) -> str:
                 formatted_paragraphs.append(f'<p class="content-text">{para}</p>')
     
     return '\n'.join(formatted_paragraphs)
+
+def is_table_format(text: str) -> bool:
+    """텍스트가 표 형식인지 확인"""
+    lines = text.strip().split('\n')
+    if len(lines) < 2:
+        return False
+    
+    # 표 구분자 확인 (|, 탭, 또는 일정한 간격)
+    table_indicators = ['|', '\t']
+    for line in lines[:3]:  # 처음 3줄만 확인
+        if any(indicator in line for indicator in table_indicators):
+            return True
+    
+    # 구분선 확인 (---, ===, 등)
+    for line in lines:
+        if re.match(r'^[\s\-=_]+\s*$', line.strip()):
+            return True
+    
+    # 정렬된 텍스트 확인 (일정한 간격으로 구분된 컬럼)
+    if len(lines) >= 2:
+        first_line = lines[0]
+        second_line = lines[1]
+        
+        # 첫 번째 줄의 단어 수와 두 번째 줄의 단어 수가 비슷한지 확인
+        first_words = re.split(r'\s{2,}', first_line.strip())
+        second_words = re.split(r'\s{2,}', second_line.strip())
+        
+        if len(first_words) >= 2 and len(second_words) >= 2:
+            if abs(len(first_words) - len(second_words)) <= 1:
+                return True
+    
+    return False
+
+def convert_to_html_table(text: str) -> str:
+    """텍스트를 HTML 테이블로 변환"""
+    lines = text.strip().split('\n')
+    table_html = '<div class="table-container"><table class="content-table">'
+    
+    # 구분선 제거
+    lines = [line for line in lines if not re.match(r'^[\s\-=_]+\s*$', line.strip())]
+    
+    if not lines:
+        return '<p class="content-text">표 데이터가 없습니다.</p>'
+    
+    # 헤더 행 처리
+    header_line = lines[0]
+    if '|' in header_line:
+        headers = [cell.strip() for cell in header_line.split('|')]
+        # 빈 셀 제거
+        headers = [h for h in headers if h]
+    else:
+        # 탭이나 공백으로 구분된 경우
+        headers = [cell.strip() for cell in header_line.split('\t') if cell.strip()]
+        if not headers:
+            headers = [cell.strip() for cell in re.split(r'\s{2,}', header_line) if cell.strip()]
+    
+    if headers:
+        table_html += '<thead><tr>'
+        for header in headers:
+            table_html += f'<th>{header}</th>'
+        table_html += '</tr></thead>'
+    
+    # 데이터 행 처리
+    table_html += '<tbody>'
+    for line in lines[1:]:
+        if line.strip():
+            if '|' in line:
+                cells = [cell.strip() for cell in line.split('|')]
+                cells = [c for c in cells if c]  # 빈 셀 제거
+            else:
+                # 탭이나 공백으로 구분된 경우
+                cells = [cell.strip() for cell in line.split('\t') if cell.strip()]
+                if not cells:
+                    cells = [cell.strip() for cell in re.split(r'\s{2,}', line) if cell.strip()]
+            
+            if cells:
+                table_html += '<tr>'
+                for cell in cells:
+                    # 셀 내용이 긴 경우 줄바꿈 처리
+                    cell_content = cell.replace('\n', '<br>')
+                    table_html += f'<td>{cell_content}</td>'
+                table_html += '</tr>'
+    
+    table_html += '</tbody></table></div>'
+    return table_html
 
 def add_visual_elements(analysis_results: List[Dict]) -> List[Dict]:
     """분석 결과에 시각적 요소 추가"""
@@ -427,6 +517,63 @@ def generate_dark_interactive_webpage(analysis_results: List[Dict], project_info
         
         .content-list li {{
             margin: 5px 0;
+        }}
+        
+        /* 테이블 스타일 */
+        .table-container {{
+            margin: 20px 0;
+            overflow-x: auto;
+            border-radius: 15px;
+            box-shadow: var(--shadow-light);
+        }}
+        
+        .content-table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(42, 42, 42, 0.9);
+            border-radius: 15px;
+            overflow: hidden;
+            font-size: 0.95rem;
+        }}
+        
+        .content-table thead {{
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        }}
+        
+        .content-table th {{
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border-color);
+            font-size: 1rem;
+        }}
+        
+        .content-table td {{
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }}
+        
+        .content-table tbody tr:hover {{
+            background: rgba(58, 58, 58, 0.8);
+            transition: background 0.3s ease;
+        }}
+        
+        .content-table tbody tr:last-child td {{
+            border-bottom: none;
+        }}
+        
+        /* 반응형 테이블 */
+        @media (max-width: 768px) {{
+            .content-table {{
+                font-size: 0.85rem;
+            }}
+            .content-table th,
+            .content-table td {{
+                padding: 8px 6px;
+            }}
         }}
         
         /* 푸터 */
