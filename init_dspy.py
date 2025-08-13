@@ -2,6 +2,8 @@
 # init_dspy.py
 import dspy
 import os
+import time
+import random
 from dotenv import load_dotenv
 from agent_executor import RequirementTableSignature  # 이것만 필요
 import anthropic
@@ -52,24 +54,45 @@ def get_available_models_sdk():
         print(f"⚠️ SDK 모델 목록 조회 실패: {e}")
         return available_models  # 폴백
 
-def execute_with_sdk(prompt: str, model: str = None):
-    """Anthropic SDK로 직접 실행"""
+def execute_with_sdk_with_retry(prompt: str, model: str = None, max_retries: int = 3):
+    """Anthropic SDK로 직접 실행 - 재시도 로직 포함"""
     if model is None:
         model = "claude-3-5-sonnet-20241022"
     
-    try:
-        response = anthropic_client.messages.create(
-            model=model,
-            max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
-    except anthropic.RateLimitError:
-        return "⚠️ Rate limit 도달. 잠시 후 다시 시도해주세요."
-    except anthropic.APIError as e:
-        return f"❌ API 오류: {e}"
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    for attempt in range(max_retries):
+        try:
+            response = anthropic_client.messages.create(
+                model=model,
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.content[0].text
+            
+        except anthropic.RateLimitError:
+            wait_time = (2 ** attempt) + random.uniform(0, 1)  # 지수 백오프
+            print(f"⚠️ Rate limit 도달. {wait_time:.1f}초 후 재시도... (시도 {attempt + 1}/{max_retries})")
+            time.sleep(wait_time)
+            
+        except anthropic.APIError as e:
+            if "overloaded_error" in str(e) or "Overloaded" in str(e):
+                wait_time = (3 ** attempt) + random.uniform(1, 3)  # 과부하 시 더 긴 대기
+                print(f"⚠️ API 과부하. {wait_time:.1f}초 후 재시도... (시도 {attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
+            else:
+                return f"❌ API 오류: {e}"
+                
+        except Exception as e:
+            if attempt == max_retries - 1:  # 마지막 시도
+                return f"❌ 오류: {e}"
+            wait_time = (2 ** attempt) + random.uniform(0, 1)
+            print(f"⚠️ 일반 오류. {wait_time:.1f}초 후 재시도... (시도 {attempt + 1}/{max_retries})")
+            time.sleep(wait_time)
+    
+    return "❌ 최대 재시도 횟수 초과. 잠시 후 다시 시도해주세요."
+
+def execute_with_sdk(prompt: str, model: str = None):
+    """Anthropic SDK로 직접 실행 - 기존 함수 호환성 유지"""
+    return execute_with_sdk_with_retry(prompt, model, max_retries=3)
 
 def get_optimal_model(task_type: str) -> str:
     """작업 유형에 따른 최적 모델 선택"""

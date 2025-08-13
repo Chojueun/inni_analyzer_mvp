@@ -49,9 +49,19 @@ def execute_claude_analysis(prompt, description):
     # 세션 상태에서 선택된 모델 가져오기
     selected_model = st.session_state.get('selected_model', 'claude-3-5-sonnet-20241022')
     
-    # SDK 방식으로 실행 (DSPy 설정 변경 없이)
-    from init_dspy import execute_with_sdk
-    result = execute_with_sdk(prompt, selected_model)
+    # SDK 방식으로 실행 (DSPy 설정 변경 없이) - 재시도 로직 포함
+    from init_dspy import execute_with_sdk_with_retry
+    
+    # 진행 상황 표시
+    with st.spinner(f"🤖 {description} 분석 중... (재시도 로직 포함)"):
+        result = execute_with_sdk_with_retry(prompt, selected_model, max_retries=3)
+    
+    # 오류 메시지 개선
+    if result.startswith("❌") or result.startswith("⚠️"):
+        st.error(f"분석 중 오류가 발생했습니다: {result}")
+        # 사용자에게 재시도 옵션 제공
+        if st.button("🔄 다시 시도", key=f"retry_{description}"):
+            st.rerun()
     
     return result
 

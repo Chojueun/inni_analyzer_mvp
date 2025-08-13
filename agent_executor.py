@@ -4,6 +4,8 @@ from dspy import Module, Signature, InputField, OutputField
 from dspy.teleprompt.bootstrap import BootstrapFewShot
 from dspy.predict.react import ReAct
 from init_dspy import *
+import time
+import random
 
 # --- 기존 Signature & ReAct 클래스들 (유지)
 class RequirementTableSignature(Signature):
@@ -75,6 +77,26 @@ class AdvancedAnalysisPipeline(Module):
         strategy_result = self.strategy_generator(input + req_result + reasoning_result)
         return strategy_result
 
+def execute_with_retry(func, *args, max_retries=3, **kwargs):
+    """재시도 로직을 포함한 함수 실행"""
+    for attempt in range(max_retries):
+        try:
+            result = func(*args, **kwargs)
+            if result and not str(result).startswith("❌") and not str(result).startswith("⚠️"):
+                return result
+            elif attempt == max_retries - 1:  # 마지막 시도
+                return result
+        except Exception as e:
+            if attempt == max_retries - 1:  # 마지막 시도
+                return f"❌ 오류: {e}"
+            
+            # 지수 백오프로 대기
+            wait_time = (2 ** attempt) + random.uniform(0, 1)
+            print(f"⚠️ 오류 발생. {wait_time:.1f}초 후 재시도... (시도 {attempt + 1}/{max_retries})")
+            time.sleep(wait_time)
+    
+    return "❌ 최대 재시도 횟수 초과. 잠시 후 다시 시도해주세요."
+
 # --- 새로운 Anthropic SDK 기반 실행 함수들
 def execute_agent_sdk(prompt: str, model: str = None):
     """Anthropic SDK를 사용한 일반적인 AI 에이전트 실행 함수"""
@@ -91,77 +113,70 @@ def execute_agent_hybrid(prompt: str, model: str = None, use_sdk: bool = True):
             print(f"SDK 실행 실패, DSPy로 폴백: {e}")
     
     # DSPy 폴백
-    try:
-        result = dspy.Predict(OptimizationConditionSignature)(input=prompt)
-        value = getattr(result, "optimization_analysis", "")
-        if not value or value.strip() == "" or "error" in value.lower():
-            return "⚠️ 결과 생성 실패: AI 분석이 정상적으로 생성되지 않았습니다."
-        return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    return execute_with_retry(lambda: dspy.Predict(OptimizationConditionSignature)(input=prompt))
 
-# --- 기존 함수들 (하위 호환성 유지)
+# --- 기존 함수들 (하위 호환성 유지) - 재시도 로직 추가
 def run_requirement_table(full_prompt):
-    try:
+    def _run():
         result = dspy.Predict(RequirementTableSignature)(input=full_prompt)
         value = getattr(result, "requirement_table", "")
         if not value or value.strip() == "" or "error" in value.lower():
             return "⚠️ 결과 생성 실패: 요구사항표가 정상적으로 생성되지 않았습니다."
         return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    
+    return execute_with_retry(_run)
 
 def run_ai_reasoning(full_prompt):
-    try:
+    def _run():
         result = dspy.Predict(AIReasoningSignature)(input=full_prompt)
         value = getattr(result, "ai_reasoning", "")
         if not value or value.strip() == "" or "error" in value.lower():
             return "⚠️ 결과 생성 실패: AI reasoning이 정상적으로 생성되지 않았습니다."
         return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    
+    return execute_with_retry(_run)
 
 def run_precedent_comparison(full_prompt):
-    try:
+    def _run():
         result = dspy.Predict(PrecedentComparisonSignature)(input=full_prompt)
         value = getattr(result, "precedent_comparison", "")
         if not value or value.strip() == "" or "error" in value.lower():
             return "⚠️ 결과 생성 실패: 유사 사례 비교가 정상적으로 생성되지 않았습니다."
         return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    
+    return execute_with_retry(_run)
 
 def run_strategy_recommendation(full_prompt):
-    try:
+    def _run():
         result = dspy.Predict(StrategyRecommendationSignature)(input=full_prompt)
         value = getattr(result, "strategy_recommendation", "")
         if not value or value.strip() == "" or "error" in value.lower():
             return "⚠️ 결과 생성 실패: 전략 제언이 정상적으로 생성되지 않았습니다."
         return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    
+    return execute_with_retry(_run)
 
 def execute_agent(prompt):
     """기존 DSPy 기반 실행 함수 (하위 호환성)"""
-    try:
+    def _run():
         result = dspy.Predict(OptimizationConditionSignature)(input=prompt)
         value = getattr(result, "optimization_analysis", "")
         if not value or value.strip() == "" or "error" in value.lower():
             return "⚠️ 결과 생성 실패: AI 분석이 정상적으로 생성되지 않았습니다."
         return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    
+    return execute_with_retry(_run)
 
 def generate_narrative(prompt):
     """Narrative 생성 함수 - 소설처럼 감성적이고 몰입감 있는 스토리텔링"""
-    try:
+    def _run():
         result = dspy.Predict(NarrativeGenerationSignature)(input=prompt)
         value = getattr(result, "narrative_story", "")
         if not value or value.strip() == "" or "error" in value.lower():
             return "⚠️ 결과 생성 실패: Narrative가 정상적으로 생성되지 않았습니다."
         return value
-    except Exception as e:
-        return f"❌ 오류: {e}"
+    
+    return execute_with_retry(_run)
 
 # --- 전체 합치기용 (실제 사용은 버튼 분할이 안전!)
 def run_full_analysis(full_prompt):
