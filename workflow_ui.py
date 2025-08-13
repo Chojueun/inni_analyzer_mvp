@@ -1634,9 +1634,11 @@ def render_analysis_workflow():
             st.subheader("📋 2단계: 분석 단계 편집")
             st.info("제안된 단계들을 자유롭게 편집할 수 있습니다:")
             
-            # 편집 가능한 단계 리스트 초기화
-            if 'editable_steps' not in st.session_state:
+            # 편집 가능한 단계 리스트 업데이트 (목적 변경 시마다)
+            current_selection = f"{selected_purpose}_{','.join(selected_objectives)}"
+            if 'current_selection' not in st.session_state or st.session_state.current_selection != current_selection:
                 st.session_state.editable_steps = workflow.steps.copy()
+                st.session_state.current_selection = current_selection
             
             # 단계 편집 인터페이스
             st.markdown("#### 📝 현재 분석 단계")

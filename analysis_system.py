@@ -16,31 +16,26 @@ from enum import Enum
 
 class PurposeType(Enum):
     """용도 분류"""
-    OFFICE = "Office"
-    RESIDENTIAL = "주거"
-    COMMERCIAL = "상업"
-    CULTURAL = "문화"
-    EDUCATIONAL = "교육"
-    MEDICAL = "의료"
-    INDUSTRIAL = "산업"
-    MIXED_USE = "복합용도"
-    SPORTS = "체육/스포츠"
-    CONTRACT_BIDDING = "계약·입찰"
-    OTHER = "기타"
+    NEIGHBORHOOD_FACILITY = "근린생활시설"
+    CULTURAL_FACILITY = "문화 및 집회시설"
+    RETAIL_FACILITY = "판매시설(리테일)"
+    TRANSPORTATION_FACILITY = "운수시설"
+    MEDICAL_FACILITY = "의료시설"
+    EDUCATIONAL_FACILITY = "교육연구시설"
+    ELDERLY_FACILITY = "노유자시설"
+    TRAINING_FACILITY = "수련시설"
+    SPORTS_FACILITY = "운동시설"
+    OFFICE_FACILITY = "업무시설"
+    ACCOMMODATION_FACILITY = "숙박시설"
+    OTHER_FACILITY = "기타시설"
 
 class ObjectiveType(Enum):
     """목적 분류"""
-    MARKET_ANALYSIS = "상권분석"
-    DESIGN_GUIDELINE = "Design가이드라인"
-    MASS_STRATEGY = "Mass"
-    COST_ANALYSIS = "원가분석"
-    OPERATION_STRATEGY = "운영전략"
-    BRANDING = "브랜딩"
-    LEGAL_REVIEW = "법적검토"
-    SPACE_PLANNING = "공간계획"
-    CONCEPT_RESEARCH = "컨셉리서치"
-    RISK_ANALYSIS = "리스크분석"
-    DOCUMENT_ANALYSIS = "과업지시서 및 문서 분석"
+    PLANNING_CONCEPT_DESIGN = "계획안/컨셉/디자인"
+    MARKET_PROFITABILITY_INVESTMENT = "상권/수익성/투자"
+    LEGAL_PERMIT = "법적/인허가"
+    SPACE_CIRCULATION_UX = "공간/동선/UX"
+    OPERATION_MANAGEMENT = "운영/관리"
     OTHER = "기타"
 
 @dataclass
@@ -88,14 +83,100 @@ class AnalysisSystem:
         return self.purpose_objective_mapping.get(purpose, [ObjectiveType.OTHER])
     
     def suggest_analysis_steps(self, purpose: PurposeType, objectives: List[ObjectiveType]) -> AnalysisWorkflow:
-        """분석 단계 자동 제안 (과거 코드 방식)"""
+        """분석 단계 자동 제안 - 용도별 권장 블록 기반"""
+        # 1. 필수 단계 추가
         steps = self.required_steps.copy()
+        print(f"DEBUG: 필수 단계 수 = {len(steps)}")
         
+        # 2. 용도별 권장 단계 추가
+        if purpose in self.recommended_steps:
+            steps.extend(self.recommended_steps[purpose])
+            print(f"DEBUG: 용도별 권장 단계 추가됨 = {len(self.recommended_steps[purpose])}개")
+        else:
+            print(f"DEBUG: 용도 {purpose.value}에 대한 권장 단계 없음")
+        
+        # 3. 목적별 추가 필수 단계 추가 (목적에 따라)
         for objective in objectives:
-            if objective in self.recommended_steps:
-                steps.extend(self.recommended_steps[objective])
+            print(f"DEBUG: 목적 {objective.value} 처리 중...")
+            if objective == ObjectiveType.PLANNING_CONCEPT_DESIGN:
+                # 계획안/컨셉/디자인 목적일 때 추가 필수
+                additional_steps = [
+                    AnalysisStep(
+                        id="design_trend_application",
+                        title="통합 디자인 트렌드 적용 전략",
+                        description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                        is_recommended=True,
+                        order=11,
+                        category="디자인트렌드"
+                    ),
+                    AnalysisStep(
+                        id="design_requirement_summary",
+                        title="최종 설계 요구사항 및 가이드라인",
+                        description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                        is_recommended=True,
+                        order=12,
+                        category="요구사항정리"
+                    )
+                ]
+                steps.extend(additional_steps)
+                print(f"DEBUG: 계획안/컨셉/디자인 목적 추가 단계 = {len(additional_steps)}개")
+            
+            elif objective == ObjectiveType.MARKET_PROFITABILITY_INVESTMENT:
+                # 상권/수익성/투자 목적일 때 추가 필수
+                additional_steps = [
+                    AnalysisStep(
+                        id="precedent_benchmarking",
+                        title="선진사례 벤치마킹 및 최적 운영전략",
+                        description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                        is_recommended=True,
+                        order=11,
+                        category="벤치마킹"
+                    ),
+                    AnalysisStep(
+                        id="operation_investment_analysis",
+                        title="운영 및 투자 효율성 분석",
+                        description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                        is_recommended=True,
+                        order=12,
+                        category="운영분석"
+                    )
+                ]
+                steps.extend(additional_steps)
+                print(f"DEBUG: 상권/수익성/투자 목적 추가 단계 = {len(additional_steps)}개")
+            
+            elif objective == ObjectiveType.LEGAL_PERMIT:
+                # 법적/인허가 목적일 때 추가 필수
+                additional_steps = [
+                    AnalysisStep(
+                        id="design_requirement_summary",
+                        title="최종 설계 요구사항 및 가이드라인",
+                        description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                        is_recommended=True,
+                        order=11,
+                        category="요구사항정리"
+                    )
+                ]
+                steps.extend(additional_steps)
+                print(f"DEBUG: 법적/인허가 목적 추가 단계 = {len(additional_steps)}개")
+            
+            elif objective == ObjectiveType.OPERATION_MANAGEMENT:
+                # 운영/관리 목적일 때 추가 필수
+                additional_steps = [
+                    AnalysisStep(
+                        id="operation_investment_analysis",
+                        title="운영 및 투자 효율성 분석",
+                        description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                        is_recommended=True,
+                        order=11,
+                        category="운영분석"
+                    )
+                ]
+                steps.extend(additional_steps)
+                print(f"DEBUG: 운영/관리 목적 추가 단계 = {len(additional_steps)}개")
         
-        # 중복 제거
+        print(f"DEBUG: 중복 제거 전 총 단계 수 = {len(steps)}")
+        
+        # 4. 중복 제거 (ID 기준)
         unique_steps = []
         seen_ids = set()
         for step in steps:
@@ -103,7 +184,9 @@ class AnalysisSystem:
                 unique_steps.append(step)
                 seen_ids.add(step.id)
         
-        # 순서 정렬
+        print(f"DEBUG: 중복 제거 후 총 단계 수 = {len(unique_steps)}")
+        
+        # 5. 순서 정렬
         unique_steps.sort(key=lambda x: x.order)
         
         return AnalysisWorkflow(
@@ -210,239 +293,425 @@ class AnalysisSystem:
     def _load_purpose_objective_mapping(self) -> Dict[PurposeType, List[ObjectiveType]]:
         """용도별 목적 매핑 로드"""
         return {
-            PurposeType.OFFICE: [
-                ObjectiveType.MARKET_ANALYSIS,
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.MASS_STRATEGY,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.NEIGHBORHOOD_FACILITY: [
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.SPACE_CIRCULATION_UX,
+                ObjectiveType.OPERATION_MANAGEMENT
             ],
-            PurposeType.RESIDENTIAL: [
-                ObjectiveType.MARKET_ANALYSIS,
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.CULTURAL_FACILITY: [
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.MARKET_PROFITABILITY_INVESTMENT,
+                ObjectiveType.SPACE_CIRCULATION_UX
             ],
-            PurposeType.COMMERCIAL: [
-                ObjectiveType.MARKET_ANALYSIS,
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.MASS_STRATEGY,
-                ObjectiveType.BRANDING,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.RETAIL_FACILITY: [
+                ObjectiveType.MARKET_PROFITABILITY_INVESTMENT,
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.OPERATION_MANAGEMENT
             ],
-            PurposeType.CULTURAL: [
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.MASS_STRATEGY,
-                ObjectiveType.BRANDING,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.TRANSPORTATION_FACILITY: [
+                ObjectiveType.LEGAL_PERMIT,
+                ObjectiveType.OPERATION_MANAGEMENT,
+                ObjectiveType.SPACE_CIRCULATION_UX
             ],
-            PurposeType.EDUCATIONAL: [
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.LEGAL_REVIEW,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.MEDICAL_FACILITY: [
+                ObjectiveType.LEGAL_PERMIT,
+                ObjectiveType.OPERATION_MANAGEMENT,
+                ObjectiveType.SPACE_CIRCULATION_UX
             ],
-            PurposeType.MEDICAL: [
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.LEGAL_REVIEW,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.EDUCATIONAL_FACILITY: [
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.SPACE_CIRCULATION_UX,
+                ObjectiveType.OPERATION_MANAGEMENT
             ],
-            PurposeType.INDUSTRIAL: [
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.MASS_STRATEGY,
-                ObjectiveType.LEGAL_REVIEW,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.ELDERLY_FACILITY: [
+                ObjectiveType.LEGAL_PERMIT,
+                ObjectiveType.OPERATION_MANAGEMENT,
+                ObjectiveType.SPACE_CIRCULATION_UX
             ],
-            PurposeType.MIXED_USE: [
-                ObjectiveType.MARKET_ANALYSIS,
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.MASS_STRATEGY,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.TRAINING_FACILITY: [
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.MARKET_PROFITABILITY_INVESTMENT,
+                ObjectiveType.SPACE_CIRCULATION_UX
             ],
-            PurposeType.SPORTS: [
-                ObjectiveType.MARKET_ANALYSIS,
-                ObjectiveType.DESIGN_GUIDELINE,
-                ObjectiveType.MASS_STRATEGY,
-                ObjectiveType.SPACE_PLANNING,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.CONCEPT_RESEARCH,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.SPORTS_FACILITY: [
+                ObjectiveType.MARKET_PROFITABILITY_INVESTMENT,
+                ObjectiveType.OPERATION_MANAGEMENT,
+                ObjectiveType.SPACE_CIRCULATION_UX
             ],
-            PurposeType.CONTRACT_BIDDING: [
-                ObjectiveType.LEGAL_REVIEW,
-                ObjectiveType.RISK_ANALYSIS,
-                ObjectiveType.COST_ANALYSIS,
-                ObjectiveType.OPERATION_STRATEGY,
-                ObjectiveType.DOCUMENT_ANALYSIS
+            PurposeType.OFFICE_FACILITY: [
+                ObjectiveType.MARKET_PROFITABILITY_INVESTMENT,
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.OPERATION_MANAGEMENT
+            ],
+            PurposeType.ACCOMMODATION_FACILITY: [
+                ObjectiveType.MARKET_PROFITABILITY_INVESTMENT,
+                ObjectiveType.OPERATION_MANAGEMENT,
+                ObjectiveType.PLANNING_CONCEPT_DESIGN
+            ],
+            PurposeType.OTHER_FACILITY: [
+                ObjectiveType.PLANNING_CONCEPT_DESIGN,
+                ObjectiveType.OPERATION_MANAGEMENT
             ]
         }
 
     def _load_required_steps(self) -> List[AnalysisStep]:
-        """필수 단계 로드"""
+        """전용도·전목적 공통 필수 블록"""
         return [
             AnalysisStep(
-                id="doc_collector",
-                title="문서 구조 및 요구사항 매트릭스화",
-                description="입찰/계약 문서 전체 구조와 핵심정보, 시설별 상세 요구사항, 주요 섹션별 목적을 표로 정리",
+                id="site_regulation_analysis",
+                title="대지 환경 및 법규 분석",
+                description="대상 대지의 잠재력과 제약사항을 다각적으로 분석해 후속 설계 전략의 현실적 기반을 마련",
                 is_required=True,
                 order=1,
-                category="문서분석"
+                category="법규분석"
             ),
             AnalysisStep(
-                id="context_analyzer",
-                title="건축주 의도 및 문맥 AI 추론",
-                description="문서 내 언어 패턴, 강조 표현, 문맥을 통해 건축주(발주처)의 암묵적 의도 및 우선순위를 AI로 추론",
+                id="concept_development",
+                title="설계 컨셉 도출 및 평가",
+                description="키워드/요구/KPI를 조합해 설계 컨셉을 도출하고 평가 기준까지 체계화",
                 is_required=True,
                 order=2,
-                category="컨텍스트분석"
+                category="컨셉개발"
+            ),
+            AnalysisStep(
+                id="mass_strategy",
+                title="건축설계 방향 및 매스(Mass) 전략",
+                description="전 단계 분석 결과를 통합해 건축설계의 핵심 컨셉과 최적 매스 전략을 도출",
+                is_required=True,
+                order=3,
+                category="매스전략"
+            ),
+            AnalysisStep(
+                id="schematic_space_plan",
+                title="평면·단면 스키매틱 및 공간 계획",
+                description="주요 프로그램별 공간·면적 배치, 단면 연계, 실별 수용 인원 등 공간계획을 스키매틱으로 도출",
+                is_required=True,
+                order=4,
+                category="공간계획"
+            ),
+            AnalysisStep(
+                id="area_programming",
+                title="면적 산출 및 공간 배분 전략",
+                description="수요 기반 분석과 시장/법적 기준을 바탕으로 최적의 공간구성과 면적 배분안을 도출",
+                is_required=True,
+                order=5,
+                category="면적계획"
+            ),
+            AnalysisStep(
+                id="cost_estimation",
+                title="공사비 예측 및 원가 검토",
+                description="연면적, 용도, 적용 공법 등 입력값을 바탕으로 개략 공사비와 비용구조를 산출",
+                is_required=True,
+                order=6,
+                category="원가분석"
             )
         ]
 
-    def _load_recommended_steps(self) -> Dict[ObjectiveType, List[AnalysisStep]]:
-        """권장 단계 로드"""
+    def _load_recommended_steps(self) -> Dict[PurposeType, List[AnalysisStep]]:
+        """용도별 권장 블록"""
         return {
-            ObjectiveType.MARKET_ANALYSIS: [
+            PurposeType.NEIGHBORHOOD_FACILITY: [
                 AnalysisStep(
-                    id="market_analyzer",
-                    title="시장 분석 및 경쟁사 조사",
-                    description="시장 현황, 경쟁사 분석, 시장 트렌드, 수요 예측 등을 종합 분석",
-                    is_recommended=True,
-                    order=3,
-                    category="시장분석"
-                )
-            ],
-            ObjectiveType.DESIGN_GUIDELINE: [
-                AnalysisStep(
-                    id="design_guideline",
-                    title="디자인 가이드라인 및 기준 분석",
-                    description="디자인 원칙, 건축 기준, 규제 요구사항, 디자인 트렌드를 분석",
-                    is_recommended=True,
-                    order=4,
-                    category="디자인분석"
-                )
-            ],
-            ObjectiveType.MASS_STRATEGY: [
-                AnalysisStep(
-                    id="mass_strategy",
-                    title="Mass 전략 및 공간 구성 분석",
-                    description="건물 형태, 공간 구성, 동선 계획, 기능 배치 전략을 분석",
-                    is_recommended=True,
-                    order=5,
-                    category="공간분석"
-                )
-            ],
-            ObjectiveType.COST_ANALYSIS: [
-                AnalysisStep(
-                    id="cost_analyzer",
-                    title="원가 분석 및 경제성 검토",
-                    description="건설 원가, 운영 비용, 수익성 분석, 투자 대비 효과를 분석",
-                    is_recommended=True,
-                    order=6,
-                    category="경제분석"
-                )
-            ],
-            ObjectiveType.OPERATION_STRATEGY: [
-                AnalysisStep(
-                    id="operation_strategy",
-                    title="운영 전략 및 관리 방안",
-                    description="시설 운영 방안, 관리 체계, 서비스 전략, 효율성 개선 방안을 분석",
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
                     is_recommended=True,
                     order=7,
+                    category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=8,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="벤치마킹"
+                )
+            ],
+            PurposeType.CULTURAL_FACILITY: [
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=8,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=9,
+                    category="요구사항정리"
+                )
+            ],
+            PurposeType.RETAIL_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=8,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=10,
+                    category="디자인트렌드"
+                )
+            ],
+            PurposeType.TRANSPORTATION_FACILITY: [
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인 (안전/보안/분리동선 규정화)",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=7,
+                    category="요구사항정리"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=8,
                     category="운영분석"
                 )
             ],
-            ObjectiveType.BRANDING: [
+            PurposeType.MEDICAL_FACILITY: [
                 AnalysisStep(
-                    id="branding_strategy",
-                    title="브랜딩 전략 및 아이덴티티",
-                    description="브랜드 아이덴티티, 마케팅 전략, 사용자 경험, 차별화 요소를 분석",
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인 (감염·동선·규범)",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=7,
+                    category="요구사항정리"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                     is_recommended=True,
                     order=8,
-                    category="브랜딩분석"
-                )
-            ],
-            ObjectiveType.LEGAL_REVIEW: [
+                    category="운영분석"
+                ),
                 AnalysisStep(
-                    id="legal_reviewer",
-                    title="법적 검토 및 규제 분석",
-                    description="관련 법규, 규제 요구사항, 계약 조건, 법적 리스크를 분석",
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
                     is_recommended=True,
                     order=9,
-                    category="법적분석"
+                    category="벤치마킹"
                 )
             ],
-            ObjectiveType.SPACE_PLANNING: [
+            PurposeType.EDUCATIONAL_FACILITY: [
                 AnalysisStep(
-                    id="space_planner",
-                    title="공간 계획 및 기능 배치",
-                    description="공간 구성, 기능별 배치, 동선 계획, 확장성 고려사항을 분석",
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=8,
+                    category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=9,
+                    category="요구사항정리"
+                )
+            ],
+            PurposeType.ELDERLY_FACILITY: [
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인 (케어/안전)",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=7,
+                    category="요구사항정리"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=8,
+                    category="운영분석"
+                )
+            ],
+            PurposeType.TRAINING_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=8,
+                    category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="브랜딩전략"
+                )
+            ],
+            PurposeType.SPORTS_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=8,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=9,
+                    category="디자인트렌드"
+                )
+            ],
+            PurposeType.OFFICE_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략 (Grade A 사례)",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=8,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=9,
+                    category="운영분석"
+                )
+            ],
+            PurposeType.ACCOMMODATION_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=7,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=8,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
                     is_recommended=True,
                     order=10,
-                    category="공간계획"
+                    category="디자인트렌드"
                 )
             ],
-            ObjectiveType.CONCEPT_RESEARCH: [
+            PurposeType.OTHER_FACILITY: [
                 AnalysisStep(
-                    id="concept_researcher",
-                    title="컨셉 리서치 및 참고 사례",
-                    description="유사 프로젝트 사례, 컨셉 트렌드, 참고 자료, 벤치마킹 요소를 분석",
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
                     is_recommended=True,
-                    order=11,
-                    category="컨셉분석"
-                )
-            ],
-            ObjectiveType.RISK_ANALYSIS: [
+                    order=7,
+                    category="벤치마킹"
+                ),
                 AnalysisStep(
-                    id="risk_analyzer",
-                    title="리스크 분석 및 대응 방안",
-                    description="프로젝트 리스크, 위험 요소, 대응 전략, 예방 조치를 분석",
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
                     is_recommended=True,
-                    order=12,
-                    category="리스크분석"
-                )
-            ],
-            ObjectiveType.DOCUMENT_ANALYSIS: [
-                AnalysisStep(
-                    id="document_analyzer",
-                    title="과업지시서 및 문서 분석",
-                    description="과업지시서, 계약서, 기술사양서, 관련 문서의 상세 분석",
-                    is_recommended=True,
-                    order=13,
-                    category="문서분석"
+                    order=8,
+                    category="요구사항정리"
                 )
             ]
         }
@@ -451,28 +720,60 @@ class AnalysisSystem:
         """옵션 단계 로드"""
         return [
             AnalysisStep(
-                id="concept_development",
-                title="컨셉 개발 및 아이디어 구체화",
-                description="프로젝트 컨셉 개발, 아이디어 구체화, 창의적 솔루션 제안",
-                is_optional=True,
-                order=14,
-                category="컨셉개발"
-            ),
-            AnalysisStep(
-                id="sustainability_analysis",
-                title="지속가능성 및 친환경 분석",
-                description="친환경 요소, 에너지 효율성, 지속가능성 전략 분석",
+                id="ux_circulation_simulation",
+                title="사용자 동선 분석 및 시나리오별 공간 최적화 전략",
+                description="사용자 유형별 동선/체류 시나리오와 AI 기반 시뮬레이션 결과를 바탕으로 공간·동선 최적화 전략을 제시",
                 is_optional=True,
                 order=15,
-                category="지속가능성"
+                category="동선분석"
             ),
             AnalysisStep(
-                id="technology_integration",
-                title="기술 통합 및 스마트 솔루션",
-                description="스마트 기술, IoT, 자동화, 디지털 솔루션 통합 방안",
+                id="flexible_space_strategy",
+                title="가변형 공간·프로그램 유연성 및 확장성 설계 전략",
+                description="프로그램 변화·미래 수요 대응을 위한 가변형 공간, 다목적 영역, Flexible Mass/Plan 설계 방안을 제시",
                 is_optional=True,
                 order=16,
-                category="기술통합"
+                category="가변공간"
+            ),
+            AnalysisStep(
+                id="requirements_extractor",
+                title="요구사항 분류 및 우선순위 도출",
+                description="문서 내 명시적/암묵적 요구사항을 입찰·설계·비용 등 카테고리로 구분, 우선순위 및 심사 포인트 도출",
+                is_optional=True,
+                order=17,
+                category="요구사항분류"
+            ),
+            AnalysisStep(
+                id="compliance_analyzer",
+                title="법규·지침 준수 체크",
+                description="요구사항별 관련 법령·지침 준수 여부 및 필수 인증·승인 절차 체크리스트 도출",
+                is_optional=True,
+                order=18,
+                category="법규준수"
+            ),
+            AnalysisStep(
+                id="action_planner",
+                title="실행 체크리스트 및 핵심 포인트",
+                description="입찰·계약 준비를 위한 우선 수행과제, 일정, 담당자, 필수 기억사항 정리",
+                is_optional=True,
+                order=19,
+                category="실행계획"
+            ),
+            AnalysisStep(
+                id="competitor_analyzer",
+                title="경쟁사 분석 및 차별화 전략",
+                description="예상 경쟁사 분석을 통해 차별화 포인트와 경쟁 우위 전략을 도출",
+                is_optional=True,
+                order=20,
+                category="경쟁분석"
+            ),
+            AnalysisStep(
+                id="proposal_framework",
+                title="제안서 프레임워크 설계",
+                description="분석 결과를 바탕으로 제안서 구조와 핵심 메시지를 설계",
+                is_optional=True,
+                order=21,
+                category="제안서설계"
             )
         ]
 
@@ -528,8 +829,8 @@ if __name__ == "__main__":
     system = AnalysisSystem()
     
     # 용도와 목적 선택
-    purpose = PurposeType.OFFICE
-    objectives = [ObjectiveType.MARKET_ANALYSIS, ObjectiveType.DESIGN_GUIDELINE]
+    purpose = PurposeType.OFFICE_FACILITY
+    objectives = [ObjectiveType.MARKET_PROFITABILITY_INVESTMENT, ObjectiveType.PLANNING_CONCEPT_DESIGN]
     
     # 분석 단계 자동 제안
     workflow = system.suggest_analysis_steps(purpose, objectives)
