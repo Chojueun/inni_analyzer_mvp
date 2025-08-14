@@ -358,11 +358,27 @@ class AnalysisSystem:
         """전용도·전목적 공통 필수 블록"""
         return [
             AnalysisStep(
+                id="requirement_analysis",
+                title="요구사항 분석",
+                description="건축주의 명시적/암묵적 요구사항을 체계적으로 분석",
+                is_required=True,
+                order=1,
+                category="요구사항분석"
+            ),
+            AnalysisStep(
+                id="task_comprehension",
+                title="과업 이해도 및 설계 주안점",
+                description="InnoScan 결과와 과업지시서를 종합 분석해 설계 전제조건, KPI, 제약조건 등을 정리",
+                is_required=True,
+                order=2,
+                category="과업이해도"
+            ),
+            AnalysisStep(
                 id="site_regulation_analysis",
                 title="대지 환경 및 법규 분석",
                 description="대상 대지의 잠재력과 제약사항을 다각적으로 분석해 후속 설계 전략의 현실적 기반을 마련",
                 is_required=True,
-                order=1,
+                order=3,
                 category="법규분석"
             ),
             AnalysisStep(
@@ -370,7 +386,7 @@ class AnalysisSystem:
                 title="설계 컨셉 도출 및 평가",
                 description="키워드/요구/KPI를 조합해 설계 컨셉을 도출하고 평가 기준까지 체계화",
                 is_required=True,
-                order=2,
+                order=4,
                 category="컨셉개발"
             ),
             AnalysisStep(
@@ -378,7 +394,7 @@ class AnalysisSystem:
                 title="건축설계 방향 및 매스(Mass) 전략",
                 description="전 단계 분석 결과를 통합해 건축설계의 핵심 컨셉과 최적 매스 전략을 도출",
                 is_required=True,
-                order=3,
+                order=5,
                 category="매스전략"
             ),
             AnalysisStep(
@@ -386,7 +402,7 @@ class AnalysisSystem:
                 title="평면·단면 스키매틱 및 공간 계획",
                 description="주요 프로그램별 공간·면적 배치, 단면 연계, 실별 수용 인원 등 공간계획을 스키매틱으로 도출",
                 is_required=True,
-                order=4,
+                order=6,
                 category="공간계획"
             ),
             AnalysisStep(
@@ -394,7 +410,7 @@ class AnalysisSystem:
                 title="면적 산출 및 공간 배분 전략",
                 description="수요 기반 분석과 시장/법적 기준을 바탕으로 최적의 공간구성과 면적 배분안을 도출",
                 is_required=True,
-                order=5,
+                order=7,
                 category="면적계획"
             ),
             AnalysisStep(
@@ -402,7 +418,7 @@ class AnalysisSystem:
                 title="공사비 예측 및 원가 검토",
                 description="연면적, 용도, 적용 공법 등 입력값을 바탕으로 개략 공사비와 비용구조를 산출",
                 is_required=True,
-                order=6,
+                order=8,
                 category="원가분석"
             )
         ]
@@ -412,11 +428,19 @@ class AnalysisSystem:
         return {
             PurposeType.NEIGHBORHOOD_FACILITY: [
                 AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
                     id="design_trend_application",
                     title="통합 디자인 트렌드 적용 전략",
                     description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
                     is_recommended=True,
-                    order=7,
+                    order=10,
                     category="디자인트렌드"
                 ),
                 AnalysisStep(
@@ -424,41 +448,57 @@ class AnalysisSystem:
                     title="건축적 차별화·브랜딩·정체성 전략",
                     description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
                     is_recommended=True,
-                    order=8,
+                    order=11,
                     category="브랜딩전략"
                 ),
                 AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                     is_recommended=True,
-                    order=9,
-                    category="벤치마킹"
-                )
-            ],
-            PurposeType.CULTURAL_FACILITY: [
-                AnalysisStep(
-                    id="architectural_branding_identity",
-                    title="건축적 차별화·브랜딩·정체성 전략",
-                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
-                    is_recommended=True,
-                    order=7,
-                    category="브랜딩전략"
-                ),
-                AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
-                    is_recommended=True,
-                    order=8,
-                    category="벤치마킹"
+                    order=12,
+                    category="운영분석"
                 ),
                 AnalysisStep(
                     id="design_requirement_summary",
                     title="최종 설계 요구사항 및 가이드라인",
                     description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
                     is_recommended=True,
+                    order=13,
+                    category="요구사항정리"
+                )
+            ],
+            PurposeType.CULTURAL_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
                     order=9,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=10,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=11,
+                    category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=12,
                     category="요구사항정리"
                 )
             ],
@@ -468,7 +508,7 @@ class AnalysisSystem:
                     title="선진사례 벤치마킹 및 최적 운영전략",
                     description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
                     is_recommended=True,
-                    order=7,
+                    order=9,
                     category="벤치마킹"
                 ),
                 AnalysisStep(
@@ -476,7 +516,7 @@ class AnalysisSystem:
                     title="운영 및 투자 효율성 분석",
                     description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                     is_recommended=True,
-                    order=8,
+                    order=10,
                     category="운영분석"
                 ),
                 AnalysisStep(
@@ -484,7 +524,7 @@ class AnalysisSystem:
                     title="건축적 차별화·브랜딩·정체성 전략",
                     description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
                     is_recommended=True,
-                    order=9,
+                    order=11,
                     category="브랜딩전략"
                 ),
                 AnalysisStep(
@@ -492,8 +532,16 @@ class AnalysisSystem:
                     title="통합 디자인 트렌드 적용 전략",
                     description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
                     is_recommended=True,
-                    order=10,
+                    order=12,
                     category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=13,
+                    category="요구사항정리"
                 )
             ],
             PurposeType.TRANSPORTATION_FACILITY: [
@@ -502,7 +550,7 @@ class AnalysisSystem:
                     title="최종 설계 요구사항 및 가이드라인 (안전/보안/분리동선 규정화)",
                     description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
                     is_recommended=True,
-                    order=7,
+                    order=9,
                     category="요구사항정리"
                 ),
                 AnalysisStep(
@@ -510,8 +558,16 @@ class AnalysisSystem:
                     title="운영 및 투자 효율성 분석",
                     description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                     is_recommended=True,
-                    order=8,
+                    order=10,
                     category="운영분석"
+                ),
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=11,
+                    category="벤치마킹"
                 )
             ],
             PurposeType.MEDICAL_FACILITY: [
@@ -520,7 +576,7 @@ class AnalysisSystem:
                     title="최종 설계 요구사항 및 가이드라인 (감염·동선·규범)",
                     description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
                     is_recommended=True,
-                    order=7,
+                    order=9,
                     category="요구사항정리"
                 ),
                 AnalysisStep(
@@ -528,7 +584,7 @@ class AnalysisSystem:
                     title="운영 및 투자 효율성 분석",
                     description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                     is_recommended=True,
-                    order=8,
+                    order=10,
                     category="운영분석"
                 ),
                 AnalysisStep(
@@ -536,8 +592,16 @@ class AnalysisSystem:
                     title="선진사례 벤치마킹 및 최적 운영전략",
                     description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
                     is_recommended=True,
-                    order=9,
+                    order=11,
                     category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=12,
+                    category="브랜딩전략"
                 )
             ],
             PurposeType.EDUCATIONAL_FACILITY: [
@@ -546,146 +610,8 @@ class AnalysisSystem:
                     title="선진사례 벤치마킹 및 최적 운영전략",
                     description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
                     is_recommended=True,
-                    order=7,
-                    category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="design_trend_application",
-                    title="통합 디자인 트렌드 적용 전략",
-                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
-                    is_recommended=True,
-                    order=8,
-                    category="디자인트렌드"
-                ),
-                AnalysisStep(
-                    id="design_requirement_summary",
-                    title="최종 설계 요구사항 및 가이드라인",
-                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
-                    is_recommended=True,
                     order=9,
-                    category="요구사항정리"
-                )
-            ],
-            PurposeType.ELDERLY_FACILITY: [
-                AnalysisStep(
-                    id="design_requirement_summary",
-                    title="최종 설계 요구사항 및 가이드라인 (케어/안전)",
-                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
-                    is_recommended=True,
-                    order=7,
-                    category="요구사항정리"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=8,
-                    category="운영분석"
-                )
-            ],
-            PurposeType.TRAINING_FACILITY: [
-                AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
-                    is_recommended=True,
-                    order=7,
                     category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="design_trend_application",
-                    title="통합 디자인 트렌드 적용 전략",
-                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
-                    is_recommended=True,
-                    order=8,
-                    category="디자인트렌드"
-                ),
-                AnalysisStep(
-                    id="architectural_branding_identity",
-                    title="건축적 차별화·브랜딩·정체성 전략",
-                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
-                    is_recommended=True,
-                    order=9,
-                    category="브랜딩전략"
-                )
-            ],
-            PurposeType.SPORTS_FACILITY: [
-                AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
-                    is_recommended=True,
-                    order=7,
-                    category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=8,
-                    category="운영분석"
-                ),
-                AnalysisStep(
-                    id="design_trend_application",
-                    title="통합 디자인 트렌드 적용 전략",
-                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
-                    is_recommended=True,
-                    order=9,
-                    category="디자인트렌드"
-                )
-            ],
-            PurposeType.OFFICE_FACILITY: [
-                AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략 (Grade A 사례)",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
-                    is_recommended=True,
-                    order=7,
-                    category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="architectural_branding_identity",
-                    title="건축적 차별화·브랜딩·정체성 전략",
-                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
-                    is_recommended=True,
-                    order=8,
-                    category="브랜딩전략"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=9,
-                    category="운영분석"
-                )
-            ],
-            PurposeType.ACCOMMODATION_FACILITY: [
-                AnalysisStep(
-                    id="precedent_benchmarking",
-                    title="선진사례 벤치마킹 및 최적 운영전략",
-                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
-                    is_recommended=True,
-                    order=7,
-                    category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=8,
-                    category="운영분석"
-                ),
-                AnalysisStep(
-                    id="architectural_branding_identity",
-                    title="건축적 차별화·브랜딩·정체성 전략",
-                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
-                    is_recommended=True,
-                    order=9,
-                    category="브랜딩전략"
                 ),
                 AnalysisStep(
                     id="design_trend_application",
@@ -694,6 +620,192 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=10,
                     category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=11,
+                    category="요구사항정리"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=12,
+                    category="운영분석"
+                )
+            ],
+            PurposeType.ELDERLY_FACILITY: [
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인 (케어/안전)",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=9,
+                    category="요구사항정리"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=10,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=11,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=12,
+                    category="브랜딩전략"
+                )
+            ],
+            PurposeType.TRAINING_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=10,
+                    category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=11,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=12,
+                    category="요구사항정리"
+                )
+            ],
+            PurposeType.SPORTS_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=10,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=11,
+                    category="요구사항정리"
+                )
+            ],
+            PurposeType.OFFICE_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=10,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=11,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=12,
+                    category="요구사항정리"
+                )
+            ],
+            PurposeType.ACCOMMODATION_FACILITY: [
+                AnalysisStep(
+                    id="precedent_benchmarking",
+                    title="선진사례 벤치마킹 및 최적 운영전략",
+                    description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
+                    is_recommended=True,
+                    order=9,
+                    category="벤치마킹"
+                ),
+                AnalysisStep(
+                    id="operation_investment_analysis",
+                    title="운영 및 투자 효율성 분석",
+                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
+                    is_recommended=True,
+                    order=10,
+                    category="운영분석"
+                ),
+                AnalysisStep(
+                    id="architectural_branding_identity",
+                    title="건축적 차별화·브랜딩·정체성 전략",
+                    description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
+                    is_recommended=True,
+                    order=11,
+                    category="브랜딩전략"
+                ),
+                AnalysisStep(
+                    id="design_trend_application",
+                    title="통합 디자인 트렌드 적용 전략",
+                    description="건축·인테리어·조경 분야의 핵심 트렌드와 실현 가능한 적용 전략을 제시",
+                    is_recommended=True,
+                    order=12,
+                    category="디자인트렌드"
+                ),
+                AnalysisStep(
+                    id="design_requirement_summary",
+                    title="최종 설계 요구사항 및 가이드라인",
+                    description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
+                    is_recommended=True,
+                    order=13,
+                    category="요구사항정리"
                 )
             ],
             PurposeType.OTHER_FACILITY: [
@@ -702,7 +814,7 @@ class AnalysisSystem:
                     title="선진사례 벤치마킹 및 최적 운영전략",
                     description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
                     is_recommended=True,
-                    order=7,
+                    order=9,
                     category="벤치마킹"
                 ),
                 AnalysisStep(
@@ -710,7 +822,7 @@ class AnalysisSystem:
                     title="최종 설계 요구사항 및 가이드라인",
                     description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
                     is_recommended=True,
-                    order=8,
+                    order=10,
                     category="요구사항정리"
                 )
             ]

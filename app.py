@@ -271,18 +271,14 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         st.success("프로젝트 정보 입력이 완료되었습니다!")
         st.rerun()
 
-# ─── 사이드바에 전체 프롬프트 블록 리스트 (프로젝트 정보 완료 후 표시) ─────────────────────────
+# ─── 사이드바에 추가 선택 가능한 단계들 (프로젝트 정보 완료 후 표시) ─────────────────────────
 if not st.session_state.get('show_project_info', True):
-    st.sidebar.markdown("### 📋 전체 분석 단계")
+    st.sidebar.markdown("### 📋 추가 선택 가능한 단계")
     
     # 프롬프트 블록 로드
     from prompt_loader import load_prompt_blocks
     blocks = load_prompt_blocks()
     extra_blocks = blocks["extra"]
-    
-    # Narrative와 ArchiRender GPT 모두 탭에서 직접 처리하므로 제외 목록 비움
-    excluded_ids = set()
-    available_blocks = [block for block in extra_blocks if block["id"] not in excluded_ids]
     
     # 현재 선택된 단계들 (제거된 단계 제외)
     current_step_ids = set()
@@ -295,33 +291,42 @@ if not st.session_state.get('show_project_info', True):
     added_step_ids = st.session_state.get('added_steps', set())
     current_step_ids.update(added_step_ids)
     
-    # 추천 단계들 (제외)
-    recommended_step_ids = set()
+    # 자동 제안된 단계들 (제외)
+    auto_suggested_ids = set()
     if st.session_state.get('current_workflow'):
         from analysis_system import AnalysisSystem
         system = AnalysisSystem()
-        # selected_objectives가 없을 경우 빈 리스트 사용
+        selected_purpose = st.session_state.get('selected_purpose')
         selected_objectives = st.session_state.get('selected_objectives', [])
-        if selected_objectives:  # 빈 리스트가 아닐 때만 처리
-            for objective in selected_objectives:
-                if objective in system.recommended_steps:
-                    recommended_step_ids.update({step.id for step in system.recommended_steps[objective]})
-    
-    st.sidebar.write("**선택 가능한 단계**:")
-    
-    # 단계 추가 상태 관리
-    if 'sidebar_step_added' not in st.session_state:
-        st.session_state.sidebar_step_added = False
-    
-    for block in available_blocks:
-        block_id = block["id"]
-        is_selected = block_id in current_step_ids
-        is_recommended = block_id in recommended_step_ids
         
-        # 모든 단계를 표시 (추천 단계도 포함)
-        if is_selected:
-            st.sidebar.markdown(f"~~{block['title']}~~ *(선택됨)*")
-        else:
+        if selected_purpose and selected_objectives:
+            # 용도별 권장 단계들
+            purpose_enum = None
+            for purpose in system.recommended_steps.keys():
+                if purpose.value == selected_purpose:
+                    purpose_enum = purpose
+                    break
+            
+            if purpose_enum:
+                auto_suggested_ids.update({step.id for step in system.recommended_steps[purpose_enum]})
+    
+    # 자동 제안되지 않은 추가 선택 가능한 단계들만 필터링
+    additional_blocks = []
+    for block in extra_blocks:
+        block_id = block["id"]
+        if block_id not in auto_suggested_ids and block_id not in current_step_ids:
+            additional_blocks.append(block)
+    
+    if additional_blocks:
+        st.sidebar.write("**추가로 선택 가능한 단계**:")
+        
+        # 단계 추가 상태 관리
+        if 'sidebar_step_added' not in st.session_state:
+            st.session_state.sidebar_step_added = False
+        
+        for block in additional_blocks:
+            block_id = block["id"]
+            
             # 선택 가능한 단계
             if st.sidebar.button(f"➕ {block['title']}", key=f"add_block_{block_id}"):
                 # 단계 추가
@@ -341,10 +346,12 @@ if not st.session_state.get('show_project_info', True):
                 st.session_state.workflow_steps.append(new_step)
                 st.session_state.sidebar_step_added = True
                 st.sidebar.success(f"'{block['title']}' 단계가 추가되었습니다!")
-    
-    # 사이드바 단계 추가 후 상태 초기화
-    if st.session_state.sidebar_step_added:
-        st.session_state.sidebar_step_added = False
+        
+        # 사이드바 단계 추가 후 상태 초기화
+        if st.session_state.sidebar_step_added:
+            st.session_state.sidebar_step_added = False
+    else:
+        st.sidebar.info("✅ 모든 관련 단계가 자동으로 선택되었습니다.")
 
 # ─── 3. 새로운 탭 기반 인터페이스 ───────────────────────────
 from workflow_ui import render_tabbed_interface
