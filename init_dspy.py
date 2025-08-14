@@ -63,7 +63,7 @@ def execute_with_sdk_with_retry(prompt: str, model: str = None, max_retries: int
         try:
             response = anthropic_client.messages.create(
                 model=model,
-                max_tokens=4000,
+                max_tokens=8000,
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.content[0].text
@@ -119,7 +119,7 @@ def configure_model(model_name: str):
             model_name,
             provider="anthropic",
             api_key=anthropic_api_key,
-            max_tokens=4000
+            max_tokens=8000
         )
         dspy.configure(lm=lm, track_usage=True)
         print(f"✅ 모델이 {model_name}로 변경되었습니다.")
@@ -131,7 +131,7 @@ def configure_model(model_name: str):
                 "claude-3-5-sonnet-20241022",
                 provider="anthropic",
                 api_key=anthropic_api_key,
-                max_tokens=4000
+                max_tokens=5000
             )
             dspy.configure(lm=lm, track_usage=True)
         except:
