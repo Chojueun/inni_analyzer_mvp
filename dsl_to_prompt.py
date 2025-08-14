@@ -234,5 +234,3 @@ def prompt_strategy_recommendation(dsl_block, user_inputs, previous_summary="", 
     
     return base_prompt + "\n\n⚠️ 반드시 '전략적 제언 및 시사점'만 출력. 그 외 항목은 출력하지 마세요."
 
-# prompt_claude_narrative 함수 제거 - workflow_ui.py에서 직접 처리
-# prompt_midjourney_prompt 함수 제거 - workflow_ui.py에서 직접 처리

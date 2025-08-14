@@ -5,7 +5,7 @@ import os
 import time
 import random
 from dotenv import load_dotenv
-from agent_executor import RequirementTableSignature  # 이것만 필요
+from agent_executor import RequirementTableSignature 
 import anthropic
 from anthropic import Anthropic
 
