@@ -936,6 +936,43 @@ class AnalysisSystem:
             steps=steps
         )
 
+    def _load_recommended_cot_order(self) -> Dict[str, int]:
+        """권장 CoT 순서 매핑"""
+        return {
+            "doc_collector": 1,
+            "requirements_extractor": 2,
+            "requirement_analysis": 3,
+            "context_analyzer": 4,
+            "task_comprehension": 5,
+            "risk_strategist": 6,
+            "site_regulation_analysis": 7,
+            "compliance_analyzer": 8,
+            "precedent_benchmarking": 9,
+            "competitor_analyzer": 10,
+            "design_trend_application": 11,
+            "mass_strategy": 12,
+            "flexible_space_strategy": 13,
+            "concept_development": 14,
+            "area_programming": 15,
+            "schematic_space_plan": 16,
+            "ux_circulation_simulation": 17,
+            "design_requirement_summary": 18,
+            "cost_estimation": 19,
+            "operation_investment_analysis": 20,
+            "architectural_branding_identity": 21,
+            "action_planner": 22,
+            "proposal_framework": 23
+        }
+
+    def sort_steps_by_recommended_order(self, steps: List[AnalysisStep]) -> List[AnalysisStep]:
+        """권장 CoT 순서에 따라 단계 정렬"""
+        cot_order = self._load_recommended_cot_order()
+        
+        def get_order(step):
+            return cot_order.get(step.id, 999)  # 매핑되지 않은 단계는 마지막에
+        
+        return sorted(steps, key=get_order)
+
 # 사용 예시
 if __name__ == "__main__":
     system = AnalysisSystem()

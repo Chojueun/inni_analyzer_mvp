@@ -21,6 +21,7 @@ from agent_executor import (
 )
 from PIL import Image
 from auth_system import init_auth, login_page, admin_panel, logout
+from analysis_system import AnalysisStep, AnalysisSystem
 
 # dA-logo.png가 프로젝트 폴더에 있어야 함!
 logo = Image.open("dA-logo.png")
@@ -330,28 +331,137 @@ if not st.session_state.get('show_project_info', True):
             # 선택 가능한 단계
             if st.sidebar.button(f"➕ {block['title']}", key=f"add_block_{block_id}"):
                 # 단계 추가
-                from analysis_system import AnalysisStep
+                from analysis_system import AnalysisSystem
+                system = AnalysisSystem()
+                cot_order = system._load_recommended_cot_order()
+                
+                # 권장 순서에 따른 적절한 위치 찾기
+                new_step_order = cot_order.get(block_id, len(st.session_state.get('workflow_steps', [])) + 1)
+                
                 new_step = AnalysisStep(
                     id=block_id,
                     title=block['title'],
                     description=block.get('description', ''),
                     is_optional=True,
-                    order=len(st.session_state.get('workflow_steps', [])) + 1,
+                    order=new_step_order,
                     category="추가 단계"
                 )
                 
                 if 'workflow_steps' not in st.session_state:
                     st.session_state.workflow_steps = []
                 
+                # 적절한 위치에 삽입
                 st.session_state.workflow_steps.append(new_step)
+                
+                # 권장 순서로 재정렬
+                sorted_steps = system.sort_steps_by_recommended_order(st.session_state.workflow_steps)
+                for i, step in enumerate(sorted_steps, 1):
+                    step.order = i
+                
+                st.session_state.workflow_steps = sorted_steps
                 st.session_state.sidebar_step_added = True
-                st.sidebar.success(f"'{block['title']}' 단계가 추가되었습니다!")
+                st.sidebar.success(f"'{block['title']}' 단계가 권장 순서에 맞게 추가되었습니다!")
         
         # 사이드바 단계 추가 후 상태 초기화
         if st.session_state.sidebar_step_added:
             st.session_state.sidebar_step_added = False
     else:
         st.sidebar.info("✅ 모든 관련 단계가 자동으로 선택되었습니다.")
+
+# ─── 권장 CoT 순서 설명 ─────────────────────────
+with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
+    st.markdown("""
+    ### 🎯 권장 분석 순서 (초→중→후)
+    
+    **초기 단계 (1-6)**
+    1. **doc_collector** — 문서 수집·목차화(근거 라벨 고정)
+    2. **requirements_extractor** — 요구 분류·우선순위 도출
+    3. **requirement_analysis** — 요구사항 매트릭스/제약·우선순위 정리
+    4. **context_analyzer** — 암묵 의도·KPI 보정
+    5. **task_comprehension** — 성공기준·전제조건·리스크 가설 확정
+    6. **risk_strategist** (Gate-A) — 초기 리스크 레지스터; 임계 초과 시 3–5 재루프
+    
+    **중기 단계 (7-12)**
+    7. **site_regulation_analysis** — 대지·법규 핵심 제약/기회
+    8. **compliance_analyzer** (Baseline) (Gate-B) — 필수 규정 1차 체크
+    9. **precedent_benchmarking** — 사례 인사이트/운영 모델
+    10. **competitor_analyzer** — 경쟁 포지션·차별화(리테일/업무/숙박 필수)
+    11. **design_trend_application** — 적용 가능한 트렌드 쇼트리스트
+    12. **mass_strategy** — 매스 옵션 세트
+    
+    **후기 단계 (13-23)**
+    13. **flexible_space_strategy** — 가변/확장 원칙(문화/교육/업무 등 필수)
+    14. **concept_development** — 컨셉 문장·평가기준
+    15. **area_programming** — 공간별 적정면적/배분 원칙
+    16. **schematic_space_plan** — 평면·단면 스키매틱
+    17. **ux_circulation_simulation** — 시나리오별 동선 시뮬(운수/의료/운동/리테일/노유자 필수)
+    18. **design_requirement_summary** — 최종 요구·가이드라인(체크리스트 포함)
+    19. **cost_estimation** — 공사비 모델/변동요인
+    20. **operation_investment_analysis** — 운영·수익성 모델
+    21. **architectural_branding_identity** — 브랜딩/차별화 메시지 정렬
+    22. **action_planner** — 실행 체크리스트(담당·기한·리스크 링크)
+    23. **proposal_framework** — 제안서 와이어프레임/슬라이드 구조
+    """)
+
+# ─── 분석 시작 전 단계 정렬 및 시작 ─────────────────────────
+if st.session_state.get('workflow_steps'):
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("🔄 권장 순서 제안", type="secondary", help="선택된 단계들을 권장 CoT 순서로 재정렬합니다"):
+            from analysis_system import AnalysisSystem
+            system = AnalysisSystem()
+            
+            # 현재 단계들을 권장 순서로 정렬
+            sorted_steps = system.sort_steps_by_recommended_order(st.session_state.workflow_steps)
+            
+            # 순서 번호 업데이트
+            for i, step in enumerate(sorted_steps, 1):
+                step.order = i
+            
+            st.session_state.workflow_steps = sorted_steps
+            st.success("✅ 단계가 권장 순서로 재정렬되었습니다!")
+            st.rerun()
+    
+    with col2:
+        if st.button("🚀 분석 시작", type="primary", help="선택된 단계들로 분석을 시작합니다"):
+            st.session_state.analysis_started = True
+            st.session_state.current_step_index = 0
+            st.success("🎯 분석이 시작되었습니다!")
+            st.rerun()
+    
+    with col3:
+        if st.button("👀 단계 목록 보기", help="현재 선택된 단계들의 순서를 확인합니다"):
+            st.session_state.show_step_list = True
+            st.rerun()
+
+# ─── 단계 목록 표시 ─────────────────────────
+if st.session_state.get('show_step_list', False):
+    st.markdown("### 📋 현재 선택된 단계 목록")
+    
+    if st.session_state.get('workflow_steps'):
+        # 권장 순서로 정렬
+        from analysis_system import AnalysisSystem
+        system = AnalysisSystem()
+        sorted_steps = system.sort_steps_by_recommended_order(st.session_state.workflow_steps)
+        
+        for i, step in enumerate(sorted_steps, 1):
+            col1, col2, col3 = st.columns([0.1, 0.7, 0.2])
+            with col1:
+                st.markdown(f"**{i}.**")
+            with col2:
+                st.markdown(f"**{step.title}**")
+            with col3:
+                if st.button(f"❌ 제거", key=f"remove_{step.id}"):
+                    st.session_state.workflow_steps.remove(step)
+                    st.success(f"'{step.title}' 단계가 제거되었습니다!")
+                    st.rerun()
+        
+        if st.button("✅ 목록 닫기"):
+            st.session_state.show_step_list = False
+            st.rerun()
+    else:
+        st.info("선택된 단계가 없습니다.")
 
 # ─── 3. 새로운 탭 기반 인터페이스 ───────────────────────────
 from workflow_ui import render_tabbed_interface
