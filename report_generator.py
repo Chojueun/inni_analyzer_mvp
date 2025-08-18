@@ -3,14 +3,18 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
 import io
 import re
+import os
 
 # python-docx가 있으면 import, 없으면 None
 try:
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Inches
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
@@ -18,14 +22,28 @@ except ImportError:
     WD_ALIGN_PARAGRAPH = None
 
 def register_korean_font():
-    """한국어 폰트 등록"""
-    try:
-        # NOTOSANSKR-VF.TTF 폰트 등록
-        pdfmetrics.registerFont(TTFont('NotoSansKR', 'NOTOSANSKR-VF.TTF'))
-        return True
-    except:
-        # 폰트 파일이 없으면 기본 폰트 사용
-        return False
+    """한국어 폰트 등록 - 여러 옵션 시도"""
+    font_options = [
+        'NOTOSANSKR-VF.TTF',
+        'NanumGothicCoding.ttf',
+        'NanumGothicCoding-Bold.ttf',
+        'malgun.ttf',  # Windows 기본 폰트
+        'gulim.ttc',   # Windows 기본 폰트
+    ]
+    
+    for font_file in font_options:
+        try:
+            if os.path.exists(font_file):
+                pdfmetrics.registerFont(TTFont('KoreanFont', font_file))
+                print(f"한국어 폰트 등록 성공: {font_file}")
+                return True
+        except Exception as e:
+            print(f"폰트 등록 실패 ({font_file}): {e}")
+            continue
+    
+    # 폰트 파일이 없으면 기본 폰트 사용
+    print("한국어 폰트를 찾을 수 없어 기본 폰트를 사용합니다.")
+    return False
 
 def clean_text_for_pdf(text):
     """PDF용 텍스트 정리 - HTML 태그 제거 및 안전한 형식으로 변환"""
@@ -49,8 +67,71 @@ def clean_text_for_pdf(text):
     
     return text.strip()
 
+def parse_table_from_text(text):
+    """텍스트에서 표 형식을 파싱하여 2D 배열로 변환"""
+    lines = text.strip().split('\n')
+    table_data = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # 구분선 제거
+        if re.match(r'^[\s\-=_]+\s*$', line):
+            continue
+            
+        # | 구분자로 분할
+        if '|' in line:
+            cells = [cell.strip() for cell in line.split('|')]
+            # 첫 번째와 마지막 빈 셀 제거 (마크다운 표 형식)
+            if cells and not cells[0].strip():
+                cells = cells[1:]
+            if cells and not cells[-1].strip():
+                cells = cells[:-1]
+            table_data.append(cells)
+        else:
+            # 탭이나 공백으로 구분된 경우
+            cells = [cell.strip() for cell in line.split('\t') if cell.strip()]
+            if not cells:
+                cells = [cell.strip() for cell in re.split(r'\s{2,}', line) if cell.strip()]
+            if cells:
+                table_data.append(cells)
+    
+    return table_data
+
+def is_table_format(text):
+    """텍스트가 표 형식인지 확인"""
+    lines = text.strip().split('\n')
+    if len(lines) < 2:
+        return False
+    
+    # 표 구분자 확인
+    table_indicators = ['|', '\t']
+    for line in lines[:3]:
+        if any(indicator in line for indicator in table_indicators):
+            return True
+    
+    # 구분선 확인
+    for line in lines:
+        if re.match(r'^[\s\-=_]+\s*$', line.strip()):
+            return True
+    
+    # 정렬된 텍스트 확인
+    if len(lines) >= 2:
+        first_line = lines[0]
+        second_line = lines[1]
+        first_words = re.split(r'\s{2,}', first_line.strip())
+        second_words = re.split(r'\s{2,}', second_line.strip())
+        
+        if len(first_words) >= 2 and len(second_words) >= 2:
+            if abs(len(first_words) - len(second_words)) <= 1:
+                return True
+    
+    return False
+
 def generate_pdf_report(content, user_inputs):
-    """PDF 보고서 생성"""
+    """PDF 보고서 생성 - 표 처리 개선 및 폰트 문제 해결"""
     
     # 메모리 버퍼에 PDF 생성
     buffer = io.BytesIO()
@@ -67,7 +148,7 @@ def generate_pdf_report(content, user_inputs):
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontName='NotoSansKR',
+            fontName='KoreanFont',
             fontSize=16,
             spaceAfter=12,
             alignment=1  # 중앙 정렬
@@ -75,19 +156,19 @@ def generate_pdf_report(content, user_inputs):
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
-            fontName='NotoSansKR',
+            fontName='KoreanFont',
             fontSize=14,
             spaceAfter=8
         )
         normal_style = ParagraphStyle(
             'CustomNormal',
             parent=styles['Normal'],
-            fontName='NotoSansKR',
+            fontName='KoreanFont',
             fontSize=10,
             spaceAfter=6
         )
     else:
-        # 기본 폰트 사용
+        # 기본 폰트 사용 (한국어 지원 안됨)
         title_style = styles['Heading1']
         heading_style = styles['Heading2']
         normal_style = styles['Normal']
@@ -102,43 +183,81 @@ def generate_pdf_report(content, user_inputs):
     story.append(Spacer(1, 20))
     
     # 내용 파싱 및 추가
-    lines = content.split('\n')
+    paragraphs = content.split('\n\n')
     
-    for line in lines:
-        line = line.strip()
-        if not line:
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
             continue
             
-        # 제목 처리
-        if line.startswith('# '):
-            text = clean_text_for_pdf(line[2:].strip())
-            story.append(Paragraph(text, title_style))
-            story.append(Spacer(1, 12))
-        elif line.startswith('## '):
-            text = clean_text_for_pdf(line[3:].strip())
-            story.append(Paragraph(text, heading_style))
-            story.append(Spacer(1, 8))
-        elif line.startswith('### '):
-            text = clean_text_for_pdf(line[4:].strip())
-            story.append(Paragraph(text, heading_style))
-            story.append(Spacer(1, 6))
-        elif line.startswith('---'):
-            story.append(Spacer(1, 12))
-        else:
-            # 일반 텍스트 처리
-            if line:
-                # 표 형식 처리 (간단한 표)
-                if '|' in line:
-                    # 표를 텍스트로 변환
-                    cells = [cell.strip() for cell in line.split('|') if cell.strip()]
-                    if len(cells) >= 2:
-                        # HTML 태그 없이 안전한 형식으로
-                        key = clean_text_for_pdf(cells[0])
-                        value = clean_text_for_pdf(cells[1])
-                        formatted_line = f"<b>{key}</b>: {value}"
-                        story.append(Paragraph(formatted_line, normal_style))
+        # 표 형식 처리
+        if is_table_format(para):
+            table_data = parse_table_from_text(para)
+            if table_data and len(table_data) > 0:
+                # 표 생성
+                table = Table(table_data)
+                
+                # 표 스타일 설정 - 폰트 문제 해결
+                if font_registered:
+                    table_style = TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'KoreanFont'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 12),
+                        ('FONTSIZE', (0, 1), (-1, -1), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.beige]),
+                    ])
                 else:
-                    # 일반 텍스트 정리
+                    # 기본 폰트 사용 (한국어가 깨질 수 있음)
+                    table_style = TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 12),
+                        ('FONTSIZE', (0, 1), (-1, -1), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.beige]),
+                    ])
+                
+                table.setStyle(table_style)
+                story.append(table)
+                story.append(Spacer(1, 12))
+                continue
+        
+        # 일반 텍스트 처리
+        lines = para.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 제목 처리
+            if line.startswith('# '):
+                text = clean_text_for_pdf(line[2:].strip())
+                story.append(Paragraph(text, title_style))
+                story.append(Spacer(1, 12))
+            elif line.startswith('## '):
+                text = clean_text_for_pdf(line[3:].strip())
+                story.append(Paragraph(text, heading_style))
+                story.append(Spacer(1, 8))
+            elif line.startswith('### '):
+                text = clean_text_for_pdf(line[4:].strip())
+                story.append(Paragraph(text, heading_style))
+                story.append(Spacer(1, 6))
+            elif line.startswith('---'):
+                story.append(Spacer(1, 12))
+            else:
+                # 일반 텍스트 처리
+                if line:
                     clean_line = clean_text_for_pdf(line)
                     if clean_line:
                         story.append(Paragraph(clean_line, normal_style))
@@ -149,6 +268,7 @@ def generate_pdf_report(content, user_inputs):
         buffer.seek(0)
         return buffer.getvalue()
     except Exception as e:
+        print(f"PDF 생성 오류: {e}")
         # 오류 발생 시 간단한 텍스트로 재시도
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -172,7 +292,7 @@ def generate_pdf_report(content, user_inputs):
         return buffer.getvalue()
 
 def generate_word_report(content, user_inputs):
-    """Word 문서 보고서 생성"""
+    """Word 문서 보고서 생성 - 표 처리 개선"""
     
     if not DOCX_AVAILABLE:
         raise ImportError("python-docx 모듈이 설치되지 않았습니다. 'pip install python-docx'로 설치해주세요.")
@@ -186,36 +306,52 @@ def generate_word_report(content, user_inputs):
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
     # 내용 파싱 및 추가
-    lines = content.split('\n')
+    paragraphs = content.split('\n\n')
     
-    for line in lines:
-        line = line.strip()
-        if not line:
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
             continue
             
-        # 제목 처리
-        if line.startswith('# '):
-            text = clean_text_for_pdf(line[2:].strip())
-            doc.add_heading(text, level=1)
-        elif line.startswith('## '):
-            text = clean_text_for_pdf(line[3:].strip())
-            doc.add_heading(text, level=2)
-        elif line.startswith('### '):
-            text = clean_text_for_pdf(line[4:].strip())
-            doc.add_heading(text, level=3)
-        elif line.startswith('---'):
-            doc.add_paragraph()  # 빈 줄 추가
-        else:
-            # 일반 텍스트 처리
-            if line:
-                # 표 형식 처리
-                if '|' in line:
-                    cells = [cell.strip() for cell in line.split('|') if cell.strip()]
-                    if len(cells) >= 2:
-                        p = doc.add_paragraph()
-                        p.add_run(f"{clean_text_for_pdf(cells[0])}: ").bold = True
-                        p.add_run(clean_text_for_pdf(cells[1]))
-                else:
+        # 표 형식 처리
+        if is_table_format(para):
+            table_data = parse_table_from_text(para)
+            if table_data and len(table_data) > 0:
+                # Word 표 생성
+                table = doc.add_table(rows=len(table_data), cols=len(table_data[0]))
+                table.style = 'Table Grid'
+                
+                # 데이터 채우기
+                for i, row in enumerate(table_data):
+                    for j, cell in enumerate(row):
+                        if i < len(table.rows) and j < len(table.rows[i].cells):
+                            table.rows[i].cells[j].text = clean_text_for_pdf(cell)
+                
+                doc.add_paragraph()  # 표 후 빈 줄
+                continue
+        
+        # 일반 텍스트 처리
+        lines = para.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 제목 처리
+            if line.startswith('# '):
+                text = clean_text_for_pdf(line[2:].strip())
+                doc.add_heading(text, level=1)
+            elif line.startswith('## '):
+                text = clean_text_for_pdf(line[3:].strip())
+                doc.add_heading(text, level=2)
+            elif line.startswith('### '):
+                text = clean_text_for_pdf(line[4:].strip())
+                doc.add_heading(text, level=3)
+            elif line.startswith('---'):
+                doc.add_paragraph()  # 빈 줄 추가
+            else:
+                # 일반 텍스트 처리
+                if line:
                     clean_line = clean_text_for_pdf(line)
                     if clean_line:
                         doc.add_paragraph(clean_line)

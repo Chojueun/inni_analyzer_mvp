@@ -100,7 +100,7 @@ def convert_dsl_to_prompt(
             tasks_text += f"{i}. {task}\n"
         prompt_parts.append(tasks_text)
     
-    # 4. 품질 기준
+    # 4. 품질 기준 - 확장된 버전
     quality = dsl.get('quality_standards', {})
     if quality:
         quality_text = f"# ⚠️ 품질 기준\n"
@@ -123,16 +123,53 @@ def convert_dsl_to_prompt(
         
         prompt_parts.append(quality_text)
     
-    # 5. 출력 형식
+    # 5. 출력 형식 - 대폭 확장된 버전
     presentation = dsl.get('presentation', {})
     if presentation:
         presentation_text = f"# 📋 출력 형식\n"
         presentation_text += f"언어 톤: {presentation.get('language_tone', '')}\n"
         presentation_text += f"형식: {presentation.get('target_format', '')}\n"
         
+        # 새로 추가된 explanatory_template 처리
+        explanatory_template = presentation.get('explanatory_template', '')
+        if explanatory_template:
+            presentation_text += f"해설 템플릿: {explanatory_template}\n"
+        
         visual_elements = presentation.get('visual_elements', [])
         if visual_elements:
             presentation_text += f"시각 요소: {', '.join(visual_elements)}\n"
+        
+        # 새로 추가된 section_templates 처리 - 대폭 확장
+        section_templates = presentation.get('section_templates', {})
+        if section_templates:
+            presentation_text += f"\n## 📋 섹션별 상세 템플릿:\n"
+            for section_name, template in section_templates.items():
+                presentation_text += f"\n### {section_name}:\n"
+                
+                # table_title 처리
+                table_title = template.get('table_title', '')
+                if table_title:
+                    presentation_text += f"- **표 제목:** {table_title}\n"
+                
+                # required_columns 처리 - 배열 형태로 확장
+                required_columns = template.get('required_columns', [])
+                if required_columns:
+                    presentation_text += f"- **필수 컬럼:**\n"
+                    for i, column in enumerate(required_columns, 1):
+                        if isinstance(column, str):
+                            presentation_text += f"  {i}. {column}\n"
+                        else:
+                            presentation_text += f"  {i}. {column}\n"
+                
+                # narrative_template 처리
+                narrative_template = template.get('narrative_template', '')
+                if narrative_template:
+                    presentation_text += f"- **해설 템플릿:** {narrative_template}\n"
+                
+                # diagram_title 처리 (새로 추가)
+                diagram_title = template.get('diagram_title', '')
+                if diagram_title:
+                    presentation_text += f"- **다이어그램 제목:** {diagram_title}\n"
         
         prompt_parts.append(presentation_text)
     
@@ -193,7 +230,7 @@ def convert_dsl_to_prompt(
     
     return "\n\n".join(prompt_parts)
 
-# 단계별 특화된 프롬프트 함수들
+# 단계별 특화된 프롬프트 함수들 - 확장된 버전
 def prompt_requirement_table(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
     """요구사항 분석 프롬프트 (웹 검색 포함)"""
     base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
@@ -233,4 +270,116 @@ def prompt_strategy_recommendation(dsl_block, user_inputs, previous_summary="", 
         base_prompt += "\n\n⚠️ 위의 최신 웹 검색 결과를 바탕으로 현실적이고 실행 가능한 전략을 제시해주세요. 최신 트렌드와 시장 동향을 반영한 전략적 제언을 해주세요."
     
     return base_prompt + "\n\n⚠️ 반드시 '전략적 제언 및 시사점'만 출력. 그 외 항목은 출력하지 마세요."
+
+# 새로운 블록별 특화 함수들 추가
+def prompt_task_comprehension(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """과업 이해도 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 과업 이해도 및 설계 주안점에 집중하여 분석하세요."
+
+def prompt_site_regulation_analysis(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """대지 환경 및 법규 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 대지 환경 및 법규 분석에 집중하여 분석하세요."
+
+def prompt_precedent_benchmarking(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """선진사례 벤치마킹 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 선진사례 벤치마킹 및 최적 운영전략에 집중하여 분석하세요."
+
+def prompt_design_trend_application(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """디자인 트렌드 적용 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 통합 디자인 트렌드 적용 전략에 집중하여 분석하세요."
+
+def prompt_mass_strategy(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """매스 전략 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 건축설계 방향 및 매스(Mass) 전략에 집중하여 분석하세요."
+
+def prompt_concept_development(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """컨셉 개발 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 설계 컨셉 도출 및 평가에 집중하여 분석하세요."
+
+def prompt_schematic_space_plan(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """스키매틱 공간 계획 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 평면·단면 스키매틱 및 공간 계획에 집중하여 분석하세요."
+
+def prompt_design_requirement_summary(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """설계 요구사항 요약 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 최종 설계 요구사항 및 가이드라인에 집중하여 분석하세요."
+
+def prompt_area_programming(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """면적 프로그래밍 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 면적 산출 및 공간 배분 전략에 집중하여 분석하세요."
+
+def prompt_cost_estimation(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """공사비 예측 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 공사비 예측 및 원가 검토에 집중하여 분석하세요."
+
+def prompt_operation_investment_analysis(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """운영 투자 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 운영 및 투자 효율성 분석에 집중하여 분석하세요."
+
+def prompt_architectural_branding_identity(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """건축적 브랜딩 정체성 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 건축적 차별화·브랜딩·정체성 전략에 집중하여 분석하세요."
+
+def prompt_ux_circulation_simulation(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """사용자 동선 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 사용자 동선 분석 및 시나리오별 공간 최적화 전략에 집중하여 분석하세요."
+
+def prompt_flexible_space_strategy(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """가변형 공간 전략 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 가변형 공간·프로그램 유연성 및 확장성 설계 전략에 집중하여 분석하세요."
+
+# 문서 분석 관련 새로운 함수들
+def prompt_doc_collector(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """문서 구조 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 문서 구조 및 요구사항 매트릭스화에 집중하여 분석하세요."
+
+def prompt_context_analyzer(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """문맥 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 건축주 의도 및 문맥 AI 추론에 집중하여 분석하세요."
+
+def prompt_requirements_extractor(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """요구사항 추출 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 요구사항 분류 및 우선순위 도출에 집중하여 분석하세요."
+
+def prompt_compliance_analyzer(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """법규 준수 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 법규·지침 준수 체크에 집중하여 분석하세요."
+
+def prompt_risk_strategist(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """리스크 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 주요 리스크 도출 및 대응에 집중하여 분석하세요."
+
+def prompt_action_planner(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """액션 플래너 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 실행 체크리스트 및 핵심 포인트에 집중하여 분석하세요."
+
+def prompt_competitor_analyzer(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """경쟁사 분석 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 경쟁사 분석 및 차별화 전략에 집중하여 분석하세요."
+
+def prompt_proposal_framework(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
+    """제안서 프레임워크 프롬프트"""
+    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
+    return base_prompt + "\n\n⚠️ 제안서 프레임워크 설계에 집중하여 분석하세요."
 
