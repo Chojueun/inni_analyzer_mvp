@@ -22,18 +22,11 @@ def get_web_search_for_block(block_id: str, user_inputs: dict) -> str:
             "건축 공사비 트렌드 2024",
             "건축 원가 분석 2024"
         ],
-        "legal_review": [
-            "건축법 개정사항 2024",
-            "건축 규제 변경사항 2024"
-        ],
         "mass_strategy": [
             "건축 매스 전략 2024",
             "건축 설계 트렌드 2024"
         ],
-        "operation_investment_analysis": [
-            "건축 운영 효율성 2024",
-            "건축 투자 분석 2024"
-        ]
+
     }
     
     queries = search_queries.get(block_id, ["건축 분석 2024"])
@@ -318,14 +311,9 @@ def prompt_area_programming(dsl_block, user_inputs, previous_summary="", pdf_sum
     return base_prompt + "\n\n⚠️ 면적 산출 및 공간 배분 전략에 집중하여 분석하세요."
 
 def prompt_cost_estimation(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
-    """공사비 예측 프롬프트"""
+    """비용 및 경제성 분석 프롬프트"""
     base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
-    return base_prompt + "\n\n⚠️ 공사비 예측 및 원가 검토에 집중하여 분석하세요."
-
-def prompt_operation_investment_analysis(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
-    """운영 투자 분석 프롬프트"""
-    base_prompt = convert_dsl_to_prompt(dsl_block, user_inputs, previous_summary, pdf_summary, site_fields, include_web_search=True)
-    return base_prompt + "\n\n⚠️ 운영 및 투자 효율성 분석에 집중하여 분석하세요."
+    return base_prompt + "\n\n⚠️ 비용 및 경제성 분석(공사비 예측, 운영비 분석, 투자수익률 등)에 집중하여 분석하세요."
 
 def prompt_architectural_branding_identity(dsl_block, user_inputs, previous_summary="", pdf_summary=None, site_fields=None):
     """건축적 브랜딩 정체성 프롬프트"""

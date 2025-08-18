@@ -397,8 +397,7 @@ with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
     17. **ux_circulation_simulation** — 시나리오별 동선 시뮬(운수/의료/운동/리테일/노유자 필수)
     18. **design_requirement_summary** — 최종 요구·가이드라인(체크리스트 포함)
     19. **cost_estimation** — 공사비 모델/변동요인
-    20. **operation_investment_analysis** — 운영·수익성 모델
-    21. **architectural_branding_identity** — 브랜딩/차별화 메시지 정렬
+    20. **architectural_branding_identity** — 브랜딩/차별화 메시지 정렬
     22. **action_planner** — 실행 체크리스트(담당·기한·리스크 링크)
     23. **proposal_framework** — 제안서 와이어프레임/슬라이드 구조
     """)

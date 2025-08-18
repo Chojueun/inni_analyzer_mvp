@@ -132,14 +132,7 @@ class AnalysisSystem:
                         order=11,
                         category="벤치마킹"
                     ),
-                    AnalysisStep(
-                        id="operation_investment_analysis",
-                        title="운영 및 투자 효율성 분석",
-                        description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                        is_recommended=True,
-                        order=12,
-                        category="운영분석"
-                    )
+
                 ]
                 steps.extend(additional_steps)
                 print(f"DEBUG: 상권/수익성/투자 목적 추가 단계 = {len(additional_steps)}개")
@@ -160,19 +153,8 @@ class AnalysisSystem:
                 print(f"DEBUG: 법적/인허가 목적 추가 단계 = {len(additional_steps)}개")
             
             elif objective == ObjectiveType.OPERATION_MANAGEMENT:
-                # 운영/관리 목적일 때 추가 필수
-                additional_steps = [
-                    AnalysisStep(
-                        id="operation_investment_analysis",
-                        title="운영 및 투자 효율성 분석",
-                        description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                        is_recommended=True,
-                        order=11,
-                        category="운영분석"
-                    )
-                ]
-                steps.extend(additional_steps)
-                print(f"DEBUG: 운영/관리 목적 추가 단계 = {len(additional_steps)}개")
+                # 운영/관리 목적일 때는 추가 단계 없음 (cost_estimation에 통합됨)
+                pass
         
         print(f"DEBUG: 중복 제거 전 총 단계 수 = {len(steps)}")
         
@@ -415,8 +397,8 @@ class AnalysisSystem:
             ),
             AnalysisStep(
                 id="cost_estimation",
-                title="공사비 예측 및 원가 검토",
-                description="연면적, 용도, 적용 공법 등 입력값을 바탕으로 개략 공사비와 비용구조를 산출",
+                title="비용 및 경제성 분석",
+                description="연면적, 용도, 적용 공법 등 입력값을 바탕으로 개략 공사비와 비용구조를 산출하고, 운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                 is_required=True,
                 order=8,
                 category="원가분석"
@@ -451,14 +433,7 @@ class AnalysisSystem:
                     order=11,
                     category="브랜딩전략"
                 ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=12,
-                    category="운영분석"
-                ),
+
                 AnalysisStep(
                     id="design_requirement_summary",
                     title="최종 설계 요구사항 및 가이드라인",
@@ -512,14 +487,6 @@ class AnalysisSystem:
                     category="벤치마킹"
                 ),
                 AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
-                ),
-                AnalysisStep(
                     id="architectural_branding_identity",
                     title="건축적 차별화·브랜딩·정체성 전략",
                     description="상징성, 로컬리티, 테마, 감성 건축 등 차별화 포인트를 반영한 프로젝트 고유의 브랜딩 및 정체성 전략을 도출",
@@ -554,14 +521,6 @@ class AnalysisSystem:
                     category="요구사항정리"
                 ),
                 AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
-                ),
-                AnalysisStep(
                     id="precedent_benchmarking",
                     title="선진사례 벤치마킹 및 최적 운영전략",
                     description="국내외 유사 프로젝트 사례를 심층 분석해 차별화 요소와 최적 운영 방안을 도출",
@@ -578,14 +537,6 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=9,
                     category="요구사항정리"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
                 ),
                 AnalysisStep(
                     id="precedent_benchmarking",
@@ -628,14 +579,6 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=11,
                     category="요구사항정리"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=12,
-                    category="운영분석"
                 )
             ],
             PurposeType.ELDERLY_FACILITY: [
@@ -646,14 +589,6 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=9,
                     category="요구사항정리"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
                 ),
                 AnalysisStep(
                     id="precedent_benchmarking",
@@ -690,14 +625,6 @@ class AnalysisSystem:
                     category="디자인트렌드"
                 ),
                 AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=11,
-                    category="운영분석"
-                ),
-                AnalysisStep(
                     id="design_requirement_summary",
                     title="최종 설계 요구사항 및 가이드라인",
                     description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
@@ -716,14 +643,6 @@ class AnalysisSystem:
                     category="벤치마킹"
                 ),
                 AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
-                ),
-                AnalysisStep(
                     id="design_requirement_summary",
                     title="최종 설계 요구사항 및 가이드라인",
                     description="분석 결과를 바탕으로 실제 설계에 적용 가능한 요구사항과 가이드라인을 구조화",
@@ -740,14 +659,6 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=9,
                     category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
                 ),
                 AnalysisStep(
                     id="architectural_branding_identity",
@@ -774,14 +685,6 @@ class AnalysisSystem:
                     is_recommended=True,
                     order=9,
                     category="벤치마킹"
-                ),
-                AnalysisStep(
-                    id="operation_investment_analysis",
-                    title="운영 및 투자 효율성 분석",
-                    description="운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
-                    is_recommended=True,
-                    order=10,
-                    category="운영분석"
                 ),
                 AnalysisStep(
                     id="architectural_branding_identity",
@@ -937,7 +840,7 @@ class AnalysisSystem:
         )
 
     def _load_recommended_cot_order(self) -> Dict[str, int]:
-        """권장 CoT 순서 매핑"""
+        """권장 CoT 순서 매핑 (원래 23개 블록)"""
         return {
             "doc_collector": 1,
             "requirements_extractor": 2,
@@ -958,8 +861,7 @@ class AnalysisSystem:
             "ux_circulation_simulation": 17,
             "design_requirement_summary": 18,
             "cost_estimation": 19,
-            "operation_investment_analysis": 20,
-            "architectural_branding_identity": 21,
+            "architectural_branding_identity": 20,
             "action_planner": 22,
             "proposal_framework": 23
         }
