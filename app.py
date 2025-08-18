@@ -281,12 +281,14 @@ if not st.session_state.get('show_project_info', True):
     blocks = load_prompt_blocks()
     extra_blocks = blocks["extra"]
     
-    # 현재 선택된 단계들 (제거된 단계 제외)
+    # 현재 선택된 단계들 (editable_steps 기준으로 확인)
     current_step_ids = set()
-    if st.session_state.get('workflow_steps'):
+    if st.session_state.get('editable_steps'):
+        for step in st.session_state.editable_steps:
+            current_step_ids.add(step.id)
+    elif st.session_state.get('workflow_steps'):
         for step in st.session_state.workflow_steps:
-            if step.id not in st.session_state.get('removed_steps', set()):
-                current_step_ids.add(step.id)
+            current_step_ids.add(step.id)
     
     # 추가된 단계들도 포함
     added_step_ids = st.session_state.get('added_steps', set())
@@ -321,22 +323,18 @@ if not st.session_state.get('show_project_info', True):
     if additional_blocks:
         st.sidebar.write("**추가로 선택 가능한 단계**:")
         
-        # 단계 추가 상태 관리
-        if 'sidebar_step_added' not in st.session_state:
-            st.session_state.sidebar_step_added = False
-        
         for block in additional_blocks:
             block_id = block["id"]
             
             # 선택 가능한 단계
             if st.sidebar.button(f"➕ {block['title']}", key=f"add_block_{block_id}"):
                 # 단계 추가
-                from analysis_system import AnalysisSystem
+                from analysis_system import AnalysisSystem, AnalysisStep
                 system = AnalysisSystem()
                 cot_order = system._load_recommended_cot_order()
                 
                 # 권장 순서에 따른 적절한 위치 찾기
-                new_step_order = cot_order.get(block_id, len(st.session_state.get('workflow_steps', [])) + 1)
+                new_step_order = cot_order.get(block_id, 999)  # 기본값을 높게 설정
                 
                 new_step = AnalysisStep(
                     id=block_id,
@@ -347,24 +345,34 @@ if not st.session_state.get('show_project_info', True):
                     category="추가 단계"
                 )
                 
+                # editable_steps에 추가 (메인 편집 인터페이스에 반영)
+                if 'editable_steps' not in st.session_state:
+                    st.session_state.editable_steps = []
+                
+                st.session_state.editable_steps.append(new_step)
+                
+                # workflow_steps에도 추가 (동기화)
                 if 'workflow_steps' not in st.session_state:
                     st.session_state.workflow_steps = []
                 
-                # 적절한 위치에 삽입
                 st.session_state.workflow_steps.append(new_step)
                 
-                # 권장 순서로 재정렬
-                sorted_steps = system.sort_steps_by_recommended_order(st.session_state.workflow_steps)
+                # 권장 순서로 재정렬 (editable_steps 기준)
+                sorted_steps = system.sort_steps_by_recommended_order(st.session_state.editable_steps)
                 for i, step in enumerate(sorted_steps, 1):
                     step.order = i
                 
-                st.session_state.workflow_steps = sorted_steps
-                st.session_state.sidebar_step_added = True
+                # 두 리스트 모두 업데이트
+                st.session_state.editable_steps = sorted_steps
+                st.session_state.workflow_steps = sorted_steps.copy()
+                
+                # 성공 메시지 표시 (rerun 없이)
                 st.sidebar.success(f"'{block['title']}' 단계가 권장 순서에 맞게 추가되었습니다!")
-        
-        # 사이드바 단계 추가 후 상태 초기화
-        if st.session_state.sidebar_step_added:
-            st.session_state.sidebar_step_added = False
+                
+                # 추가된 단계 ID를 저장
+                if 'added_steps' not in st.session_state:
+                    st.session_state.added_steps = set()
+                st.session_state.added_steps.add(block_id)
     else:
         st.sidebar.info("✅ 모든 관련 단계가 자동으로 선택되었습니다.")
 
@@ -373,7 +381,16 @@ with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
     st.markdown("""
     ### 🎯 권장 분석 순서 (초→중→후)
     
-    **초기 단계 (1-6)**
+    **💡 왜 순서가 중요한가요?**
+    
+    건축 설계 분석은 논리적 사고 과정(Chain of Thought)을 따라야 합니다. 
+    초기 단계에서 명확한 기반을 마련하고, 중기 단계에서 구체적 전략을 수립한 후, 
+    후기 단계에서 실행 가능한 설계안을 도출하는 것이 핵심입니다.
+    
+    ---
+    
+    **💡 초기 단계 (1-6) - 기반 마련**
+    
     1. **doc_collector** — 문서 수집·목차화(근거 라벨 고정)
     2. **requirements_extractor** — 요구 분류·우선순위 도출
     3. **requirement_analysis** — 요구사항 매트릭스/제약·우선순위 정리
@@ -381,7 +398,8 @@ with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
     5. **task_comprehension** — 성공기준·전제조건·리스크 가설 확정
     6. **risk_strategist** (Gate-A) — 초기 리스크 레지스터; 임계 초과 시 3–5 재루프
     
-    **중기 단계 (7-12)**
+    **🎯 중기 단계 (7-12) - 전략 수립**
+    
     7. **site_regulation_analysis** — 대지·법규 핵심 제약/기회
     8. **compliance_analyzer** (Baseline) (Gate-B) — 필수 규정 1차 체크
     9. **precedent_benchmarking** — 사례 인사이트/운영 모델
@@ -389,7 +407,8 @@ with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
     11. **design_trend_application** — 적용 가능한 트렌드 쇼트리스트
     12. **mass_strategy** — 매스 옵션 세트
     
-    **후기 단계 (13-23)**
+    **💡 후기 단계 (13-23) - 설계 실행**
+    
     13. **flexible_space_strategy** — 가변/확장 원칙(문화/교육/업무 등 필수)
     14. **concept_development** — 컨셉 문장·평가기준
     15. **area_programming** — 공간별 적정면적/배분 원칙
@@ -398,74 +417,17 @@ with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
     18. **design_requirement_summary** — 최종 요구·가이드라인(체크리스트 포함)
     19. **cost_estimation** — 공사비 모델/변동요인
     20. **architectural_branding_identity** — 브랜딩/차별화 메시지 정렬
-    22. **action_planner** — 실행 체크리스트(담당·기한·리스크 링크)
-    23. **proposal_framework** — 제안서 와이어프레임/슬라이드 구조
+    21. **action_planner** — 실행 체크리스트(담당·기한·리스크 링크)
+    22. **proposal_framework** — 제안서 와이어프레임/슬라이드 구조
     """)
 
 # ─── 분석 시작 전 단계 정렬 및 시작 ─────────────────────────
-if st.session_state.get('workflow_steps'):
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("🔄 권장 순서 제안", type="secondary", help="선택된 단계들을 권장 CoT 순서로 재정렬합니다"):
-            from analysis_system import AnalysisSystem
-            system = AnalysisSystem()
-            
-            # 현재 단계들을 권장 순서로 정렬
-            sorted_steps = system.sort_steps_by_recommended_order(st.session_state.workflow_steps)
-            
-            # 순서 번호 업데이트
-            for i, step in enumerate(sorted_steps, 1):
-                step.order = i
-            
-            st.session_state.workflow_steps = sorted_steps
-            st.success("✅ 단계가 권장 순서로 재정렬되었습니다!")
-            st.rerun()
-    
-    with col2:
-        if st.button("🚀 분석 시작", type="primary", help="선택된 단계들로 분석을 시작합니다"):
-            st.session_state.analysis_started = True
-            st.session_state.current_step_index = 0
-            st.success("🎯 분석이 시작되었습니다!")
-            st.rerun()
-    
-    with col3:
-        if st.button("👀 단계 목록 보기", help="현재 선택된 단계들의 순서를 확인합니다"):
-            st.session_state.show_step_list = True
-            st.rerun()
-
-# ─── 단계 목록 표시 ─────────────────────────
-if st.session_state.get('show_step_list', False):
-    st.markdown("### 📋 현재 선택된 단계 목록")
-    
-    if st.session_state.get('workflow_steps'):
-        # 권장 순서로 정렬
-        from analysis_system import AnalysisSystem
-        system = AnalysisSystem()
-        sorted_steps = system.sort_steps_by_recommended_order(st.session_state.workflow_steps)
-        
-        for i, step in enumerate(sorted_steps, 1):
-            col1, col2, col3 = st.columns([0.1, 0.7, 0.2])
-            with col1:
-                st.markdown(f"**{i}.**")
-            with col2:
-                st.markdown(f"**{step.title}**")
-            with col3:
-                if st.button(f"❌ 제거", key=f"remove_{step.id}"):
-                    st.session_state.workflow_steps.remove(step)
-                    st.success(f"'{step.title}' 단계가 제거되었습니다!")
-                    st.rerun()
-        
-        if st.button("✅ 목록 닫기"):
-            st.session_state.show_step_list = False
-            st.rerun()
-    else:
-        st.info("선택된 단계가 없습니다.")
+# 이 섹션 제거 (탭 인터페이스 후에 처리됨)
 
 # ─── 3. 새로운 탭 기반 인터페이스 ───────────────────────────
 from workflow_ui import render_tabbed_interface
 
-# 탭 기반 인터페이스 렌더링 (이 부분만 남기고 나머지 중복 UI 제거)
+# 탭 기반 인터페이스 렌더링
 render_tabbed_interface()
 
 # ─── 4. 누적된 이전 분석 결과 ───────────────────────────

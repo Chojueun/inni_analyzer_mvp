@@ -2062,33 +2062,37 @@ def render_analysis_workflow():
                                     st.session_state.editable_steps[i+1], st.session_state.editable_steps[i]
                                 st.rerun()
             
-            # 분석 시작 버튼
-            if st.button("분석 시작", key="start_analysis_workflow"):
-                # 필수 정보 확인
-                missing_fields = []
-                for field in REQUIRED_FIELDS:
-                    if not user_inputs.get(field):
-                        missing_fields.append(field)
-                
-                if missing_fields:
-                    st.error(f"❌ 다음 필수 정보를 입력해주세요: {', '.join(missing_fields)}")
-                    st.stop()
-                
-                # PDF 처리 상태 확인
-                pdf_summary = st.session_state.get('pdf_summary', '')
-                if not pdf_summary:
-                    st.error("❌ PDF 처리가 완료되지 않았습니다. PDF를 다시 업로드해주세요.")
-                    st.stop()
-                
-                # 분석 단계 초기화
-                st.session_state.analysis_started = True
-                st.session_state.current_step_index = 0
-                st.session_state.cot_history = []
-                st.session_state.workflow_steps = st.session_state.editable_steps
-                st.session_state.current_step_outputs = {}
-                
-                st.success("✅ 분석이 시작되었습니다!")
-                st.rerun()
+            # 워크플로우 편집 완료 후 제어 버튼들 표시 (통합)
+            st.markdown("---")
+            
+            # 제어 버튼들 (타이틀 없이)
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                if st.button("🔄 권장 순서 제안", type="secondary", help="선택된 단계들을 권장 CoT 순서로 재정렬합니다", key="recommend_order_workflow"):
+                    from analysis_system import AnalysisSystem
+                    system = AnalysisSystem()
+                    
+                    # 현재 단계들을 권장 순서로 정렬 (editable_steps 사용)
+                    sorted_steps = system.sort_steps_by_recommended_order(st.session_state.editable_steps)
+                    
+                    # 순서 번호 업데이트
+                    for i, step in enumerate(sorted_steps, 1):
+                        step.order = i
+                    
+                    # editable_steps를 직접 업데이트 (메인 편집 인터페이스에 반영)
+                    st.session_state.editable_steps = sorted_steps
+                    st.success("✅ 단계가 권장 순서로 재정렬되었습니다!")
+                    st.rerun()
+            
+            with col2:
+                if st.button("🚀 분석 시작", type="primary", help="선택된 단계들로 분석을 시작합니다", key="start_analysis_workflow"):
+                    # 분석 시작 시 editable_steps를 workflow_steps로 복사
+                    st.session_state.workflow_steps = st.session_state.editable_steps.copy()
+                    st.session_state.analysis_started = True
+                    st.session_state.current_step_index = 0
+                    st.success("🎯 분석이 시작되었습니다!")
+                    st.rerun()
 
 def main():
     """메인 함수"""
