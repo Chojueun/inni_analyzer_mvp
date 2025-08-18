@@ -95,8 +95,12 @@ def reset_workflow_state():
     st.session_state.added_steps = set()
     st.session_state.analysis_started = False
     st.session_state.analysis_completed = False
-    st.session_state.current_step_index = 0
-    st.session_state.cot_history = []
+    # current_step_index를 0으로 초기화하지 않고 기존 값 유지
+    if 'current_step_index' not in st.session_state:
+        st.session_state.current_step_index = 0
+    # cot_history를 초기화하지 않고 기존 값 유지
+    if 'cot_history' not in st.session_state:
+        st.session_state.cot_history = []
     st.session_state.show_next_step_button = False
     st.session_state.current_step_display_data = None
     st.session_state.current_step_outputs = {}

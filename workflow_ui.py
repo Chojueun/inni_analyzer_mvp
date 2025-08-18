@@ -287,8 +287,12 @@ def render_workflow_summary(workflow: AnalysisWorkflow, system: AnalysisSystem):
     if st.button("🚀 분석 실행", type="primary", use_container_width=True, key="execute_analysis"):
         # 분석 상태 설정
         st.session_state.analysis_started = True
-        st.session_state.current_step_index = 0
-        st.session_state.cot_history = []
+        # current_step_index를 0으로 초기화하지 않고 기존 값 유지
+        if 'current_step_index' not in st.session_state:
+            st.session_state.current_step_index = 0
+        # cot_history를 초기화하지 않고 기존 값 유지
+        if 'cot_history' not in st.session_state:
+            st.session_state.cot_history = []
         st.session_state.workflow_steps = final_steps
         st.session_state.show_feedback = False
         
@@ -353,6 +357,16 @@ def render_analysis_execution():
     else:
         st.sidebar.write("**완료된 분석: 없음**")
 
+    # 디버깅 정보 추가 (render_analysis_execution 함수 시작 부분에)
+    st.sidebar.markdown("### 🔍 상태 디버깅")
+    st.sidebar.write(f"**현재 단계**: {st.session_state.get('current_step_index', 0) + 1}")
+    st.sidebar.write(f"**분석 시작됨**: {st.session_state.get('analysis_started', False)}")
+    st.sidebar.write(f"**완료된 분석**: {len(st.session_state.get('cot_history', []))}개")
+    st.sidebar.write(f"**현재 단계 제목**: {st.session_state.get('current_step', {}).get('title', '')}")
+    if st.session_state.get('current_step'):
+        st.sidebar.write(f"**현재 블록 제목**: {st.session_state.get('current_step').get('title', '')}")
+        st.sidebar.write(f"**단계 완료 여부**: {st.session_state.get('current_step').get('completed', False)}")
+
     # 간단 검색 시스템 초기화
     try:
         from utils_pdf import initialize_vector_system
@@ -404,8 +418,14 @@ def render_analysis_execution():
         if current_step.id in blocks_by_id:
             current_block = blocks_by_id[current_step.id]
         
-        # 현재 단계의 분석 상태 확인
-        step_completed = any(h['step'] == current_step.title for h in st.session_state.get('cot_history', []))
+        # 현재 단계의 분석 상태 확인 (수정된 로직)
+        step_completed = False
+        if current_block:
+            # current_block['title']로 저장된 경우 체크
+            step_completed = any(h['step'] == current_block['title'] for h in st.session_state.get('cot_history', []))
+        else:
+            # current_step.title로 저장된 경우 체크
+            step_completed = any(h['step'] == current_step.title for h in st.session_state.get('cot_history', []))
         
         # 웹 검색 설정 초기화
         if 'web_search_settings' not in st.session_state:
@@ -431,191 +451,197 @@ def render_analysis_execution():
                 help="이 단계에서 최신 웹 검색 결과를 포함하여 분석합니다."
             )
         
-        # 분석 실행 버튼 (항상 표시)
-        if current_block:
-            button_text = f"🚀 {current_block['title']} 분석 실행"
-        else:
-            button_text = f"🚀 {current_step.title} 분석 실행"
-        
-        if st.button(button_text, type="primary", key=f"analyze_{current_step.id}_{current_step_index}"):
-            try:
-                # current_block이 None인 경우 처리
-                if not current_block:
-                    st.error(f"❌ '{current_step.title}' 단계에 해당하는 블록을 찾을 수 없습니다.")
-                    st.error(f"단계 ID: {current_step.id}")
-                    st.error("사용 가능한 블록들:")
-                    for block in extra_blocks:
-                        st.error(f"- {block['id']}: {block['title']}")
-                    return
-                
-                # PDF 요약 정보 가져오기
-                pdf_summary = get_pdf_summary()
-                if not pdf_summary:
-                    st.error("❌ PDF 요약 정보가 없습니다. PDF를 다시 업로드해주세요.")
-                    return
-                
-                # 사용자 입력 정보 가져오기
-                user_inputs = get_user_inputs()
-                
-                # 웹 검색 설정 가져오기
-                web_search_key = f"web_search_{current_step.id}"
-                include_web_search = st.session_state.web_search_settings.get(web_search_key, False)
-                
-                # 분석 실행 부분에 디버깅 정보 추가
-                with st.spinner(f"{current_block['title']} 분석 중..."):
-                    # DSL을 프롬프트로 변환
-                    from dsl_to_prompt import convert_dsl_to_prompt
+        # 분석 실행 버튼 (단계가 완료되지 않은 경우에만 표시)
+        if not step_completed:
+            if current_block:
+                button_text = f"🚀 {current_block['title']} 분석 실행"
+            else:
+                button_text = f"🚀 {current_step.title} 분석 실행"
+            
+            if st.button(button_text, type="primary", key=f"analyze_{current_step.id}_{current_step_index}"):
+                import contextlib
+                with contextlib.suppress(Exception):
+                    # current_block이 None인 경우 처리
+                    if not current_block:
+                        st.error(f"❌ '{current_step.title}' 단계에 해당하는 블록을 찾을 수 없습니다.")
+                        st.error(f"단계 ID: {current_step.id}")
+                        st.error("사용 가능한 블록들:")
+                        for block in extra_blocks:
+                            st.error(f"- {block['id']}: {block['title']}")
+                        return
                     
-                    # 이전 분석 결과들 가져오기
-                    previous_results = ""
-                    if st.session_state.get('cot_history'):
-                        previous_results = "\n\n".join([f"**{h['step']}**: {h['result']}" for h in st.session_state.cot_history])
+                    # PDF 요약 정보 가져오기
+                    pdf_summary = get_pdf_summary()
+                    if not pdf_summary:
+                        st.error("❌ PDF 요약 정보가 없습니다. PDF를 다시 업로드해주세요.")
+                        return
                     
-                    # 프롬프트 생성 (웹 검색 설정 반영)
-                    prompt = convert_dsl_to_prompt(
-                        dsl_block=current_block,
-                        user_inputs=user_inputs,
-                        previous_summary=previous_results,
-                        pdf_summary=pdf_summary,
-                        site_fields=st.session_state.get('site_fields', {}),
-                        include_web_search=include_web_search  # ✅ 사용자 선택 반영
-                    )
+                    # 사용자 입력 정보 가져오기
+                    user_inputs = get_user_inputs()
                     
-                    # 웹 검색 상태 표시
-                    if include_web_search:
-                        st.info("🌐 웹 검색이 포함된 분석을 실행합니다...")
+                    # 웹 검색 설정 가져오기
+                    web_search_key = f"web_search_{current_step.id}"
+                    include_web_search = st.session_state.web_search_settings.get(web_search_key, False)
                     
-                    # Claude 분석 실행
-                    result = execute_claude_analysis(prompt, current_block['title'])
-                    
-                    if result and result != f"{current_block['title']} 분석 실패":
-                        # 결과 저장
-                        save_step_result(current_step.id, result)
-                        append_step_history(current_step.id, current_block['title'], prompt, result)
+                    # 분석 실행 부분에 디버깅 정보 추가
+                    with st.spinner(f"{current_block['title']} 분석 중..."):
+                        # DSL을 프롬프트로 변환
+                        from dsl_to_prompt import convert_dsl_to_prompt
                         
-                        # cot_history에도 추가 (기존 호환성 유지)
-                        if 'cot_history' not in st.session_state:
-                            st.session_state.cot_history = []
-                        st.session_state.cot_history.append({
-                            'step': current_block['title'],
-                            'result': result
-                        })
+                        # 이전 분석 결과들 가져오기
+                        previous_results = ""
+                        if st.session_state.get('cot_history'):
+                            previous_results = "\n\n".join([f"**{h['step']}**: {h['result']}" for h in st.session_state.cot_history])
                         
-                        st.success(f"✅ {current_block['title']} 분석 완료!")
+                        # 프롬프트 생성 (웹 검색 설정 반영)
+                        prompt = convert_dsl_to_prompt(
+                            dsl_block=current_block,
+                            user_inputs=user_inputs,
+                            previous_summary=previous_results,
+                            pdf_summary=pdf_summary,
+                            site_fields=st.session_state.get('site_fields', {}),
+                            include_web_search=include_web_search  # ✅ 사용자 선택 반영
+                        )
                         
-                        # 분석 완료 후 즉시 결과 표시
-                        st.markdown("---")
-                        st.markdown(f"### 📋 {current_block['title']} 분석 결과")
+                        # 웹 검색 상태 표시
+                        if include_web_search:
+                            st.info("🌐 웹 검색이 포함된 분석을 실행합니다...")
                         
-                        output_structure = current_block.get("content_dsl", {}).get("output_structure", [])
-                        if output_structure:
-                            parsed_results = parse_analysis_result_by_structure(result, output_structure)
-                            result_tabs = st.tabs(output_structure)
-                            for i, (tab, structure_name) in enumerate(zip(result_tabs, output_structure)):
-                                with tab:
-                                    st.markdown(f"### {structure_name}")
-                                    content = parsed_results.get(structure_name, "")
-                                    if content and not content.startswith("⚠️"):
-                                        st.markdown(content)
-                                    else:
-                                        st.warning("⚠️ 이 구조의 결과를 찾을 수 없습니다.")
-                        else:
-                            with st.expander(f"📋 {current_block['title']} - 분석 결과", expanded=True):
-                                st.markdown(result)
+                        # Claude 분석 실행
+                        result = execute_claude_analysis(prompt, current_block['title'])
+                        # 실패 가드: 결과가 없거나 실패 메시지면 즉시 중단
+                        if not result or result == f"{current_block['title']} 분석 실패":
+                            st.error(f"❌ {current_block['title']} 분석 실패")
+                            return
                         
-                        # 컨트롤 버튼들
-                        st.markdown("---")
-                        st.markdown("### 🎛️ 분석 제어")
-                        col1, col2, col3, col4 = st.columns(4)
-                        
-                        with col1:
-                            if st.button("🔄 다시 분석", key=f"reanalyze_{current_step.id}_{current_step_index}"):
-                                # 재분석 실행
-                                try:
-                                    pdf_summary = get_pdf_summary()
-                                    user_inputs = get_user_inputs()
-                                    
-                                    with st.spinner(f"{current_step.title} 재분석 중..."):
-                                        from dsl_to_prompt import convert_dsl_to_prompt
-                                        
-                                        previous_results = ""
-                                        if st.session_state.get('cot_history'):
-                                            # 현재 단계 결과 제외
-                                            previous_results = "\n\n".join([
-                                                f"**{h['step']}**: {h['result']}" 
-                                                for h in st.session_state.cot_history 
-                                                if h['step'] != current_block['title']
-                                            ])
-                                        
-                                        prompt = convert_dsl_to_prompt(
-                                            dsl_block=current_block,
-                                            user_inputs=user_inputs,
-                                            previous_summary=previous_results,
-                                            pdf_summary=pdf_summary,
-                                            site_fields=st.session_state.get('site_fields', {}),
-                                            include_web_search=False
-                                        )
-                                        
-                                        new_result = execute_claude_analysis(prompt, current_block['title'])
-                                        
-                                        if new_result and new_result != f"{current_block['title']} 분석 실패":
-                                            # 기존 결과 업데이트
-                                            for h in st.session_state.cot_history:
-                                                if h['step'] == current_block['title']:
-                                                    h['result'] = new_result
-                                                    break
-                                            
-                                            save_step_result(current_step.id, new_result)
-                                            st.success("✅ 재분석 완료!")
-                                            st.rerun()
-                                        else:
-                                            st.error("❌ 재분석 실패")
-                                except Exception as e:
-                                    st.error(f"❌ 재분석 오류: {e}")
-                        
-                        with col2:
-                            if st.button("💬 피드백", key=f"feedback_{current_step.id}_{current_step_index}"):
-                                st.session_state.show_feedback = True
-                                st.rerun()
-                        
-                        # 피드백 입력 UI
-                        if st.session_state.get('show_feedback', False):
+                        if result and result != f"{current_block['title']} 분석 실패":
+                            # 결과 저장
+                            save_step_result(current_step.id, result)
+                            append_step_history(current_step.id, current_block['title'], prompt, result)
+                            
+                            # cot_history에도 추가 (기존 호환성 유지)
+                            if 'cot_history' not in st.session_state:
+                                st.session_state.cot_history = []
+                            st.session_state.cot_history.append({
+                                'step': current_block['title'],
+                                'result': result
+                            })
+                            
+                            st.success(f"✅ {current_block['title']} 분석 완료!")
+                            
+                            # 분석 완료 후 즉시 결과 표시
                             st.markdown("---")
-                            st.markdown("#### 💬 피드백 입력")
+                            st.markdown(f"### 📋 {current_block['title']} 분석 결과")
                             
-                            # 피드백 유형 선택
-                            feedback_type = st.selectbox(
-                                "피드백 유형 선택:",
-                                ["추가 분석 요청", "수정 요청", "다른 관점 제시", "구조 변경", "기타"],
-                                key=f"feedback_type_{current_step.id}"
-                            )
+                            output_structure = current_block.get("content_dsl", {}).get("output_structure", [])
+                            if output_structure:
+                                parsed_results = parse_analysis_result_by_structure(result, output_structure)
+                                result_tabs = st.tabs(output_structure)
+                                for i, (tab, structure_name) in enumerate(zip(result_tabs, output_structure)):
+                                    with tab:
+                                        st.markdown(f"### {structure_name}")
+                                        content = parsed_results.get(structure_name, "")
+                                        if content and not content.startswith("⚠️"):
+                                            st.markdown(content)
+                                        else:
+                                            st.warning("⚠️ 이 구조의 결과를 찾을 수 없습니다.")
+                            else:
+                                with st.expander(f"📋 {current_block['title']} - 분석 결과", expanded=True):
+                                    st.markdown(result)
                             
-                            # 피드백 내용 입력
-                            feedback_input = st.text_area(
-                                "피드백 내용을 입력해주세요:",
-                                placeholder="개선하고 싶은 부분이나 추가 요청사항을 자유롭게 작성해주세요...",
-                                height=150,
-                                key=f"feedback_input_{current_step.id}"
-                            )
+                            # 컨트롤 버튼들
+                            st.markdown("---")
+                            st.markdown("### 🎛️ 분석 제어")
+                            col1, col2, col3, col4 = st.columns(4)
                             
-                            # 피드백 제출 버튼
-                            if st.button("💬 피드백 제출", key=f"submit_feedback_{current_step.id}"):
-                                if feedback_input.strip():
-                                    with st.spinner("피드백을 처리하고 있습니다..."):
-                                        try:
-                                            # 피드백 처리 프롬프트 생성
-                                            current_results = st.session_state.current_step_outputs
-                                            original_result = current_results.get("original_result", "")
-                                            if not original_result:
-                                                # 원본 결과가 없으면 현재 결과를 원본으로 저장
-                                                original_result = "\n\n".join([
-                                                    f"**{key}**: {value}" 
-                                                    for key, value in current_results.items() 
-                                                    if key != "saved" and key != "original_result" and key != "updated_result" and key != "feedback_applied"
-                                                ])
-                                                st.session_state.current_step_outputs["original_result"] = original_result
+                            with col1:
+                                if st.button("🔄 다시 분석", key=f"reanalyze_{current_step.id}_{current_step_index}"):
+                                    # 재분석 실행
+                                    try:
+                                        pdf_summary = get_pdf_summary()
+                                        user_inputs = get_user_inputs()
+                                        
+                                        with st.spinner(f"{current_step.title} 재분석 중..."):
+                                            from dsl_to_prompt import convert_dsl_to_prompt
                                             
-                                            feedback_prompt = f"""
+                                            previous_results = ""
+                                            if st.session_state.get('cot_history'):
+                                                # 현재 단계 결과 제외
+                                                previous_results = "\n\n".join([
+                                                    f"**{h['step']}**: {h['result']}" 
+                                                    for h in st.session_state.cot_history 
+                                                    if h['step'] != current_block['title']
+                                                ])
+                                            
+                                            prompt = convert_dsl_to_prompt(
+                                                dsl_block=current_block,
+                                                user_inputs=user_inputs,
+                                                previous_summary=previous_results,
+                                                pdf_summary=pdf_summary,
+                                                site_fields=st.session_state.get('site_fields', {}),
+                                                include_web_search=False
+                                            )
+                                            
+                                            new_result = execute_claude_analysis(prompt, current_block['title'])
+                                            
+                                            if new_result and new_result != f"{current_block['title']} 분석 실패":
+                                                # 기존 결과 업데이트
+                                                for h in st.session_state.cot_history:
+                                                    if h['step'] == current_block['title']:
+                                                        h['result'] = new_result
+                                                        break
+                                                
+                                                save_step_result(current_step.id, new_result)
+                                                st.success("✅ 재분석 완료!")
+                                                st.rerun()
+                                            else:
+                                                st.error("❌ 재분석 실패")
+                                    except Exception as e:
+                                        st.error(f"❌ 재분석 오류: {e}")
+                            
+                            with col2:
+                                if st.button("💬 피드백", key=f"feedback_{current_step.id}_{current_step_index}"):
+                                    st.session_state.show_feedback = True
+                                    st.rerun()
+                            
+                            # 피드백 입력 UI
+                            if st.session_state.get('show_feedback', False):
+                                st.markdown("---")
+                                st.markdown("#### 💬 피드백 입력")
+                                
+                                # 피드백 유형 선택
+                                feedback_type = st.selectbox(
+                                    "피드백 유형 선택:",
+                                    ["추가 분석 요청", "수정 요청", "다른 관점 제시", "구조 변경", "기타"],
+                                    key=f"feedback_type_{current_step.id}"
+                                )
+                                
+                                # 피드백 내용 입력
+                                feedback_input = st.text_area(
+                                    "피드백 내용을 입력해주세요:",
+                                    placeholder="개선하고 싶은 부분이나 추가 요청사항을 자유롭게 작성해주세요...",
+                                    height=150,
+                                    key=f"feedback_input_{current_step.id}"
+                                )
+                                
+                                # 피드백 제출 버튼
+                                if st.button("💬 피드백 제출", key=f"submit_feedback_{current_step.id}"):
+                                    if feedback_input.strip():
+                                        with st.spinner("피드백을 처리하고 있습니다..."):
+                                            try:
+                                                # 피드백 처리 프롬프트 생성
+                                                current_results = st.session_state.current_step_outputs
+                                                original_result = current_results.get("original_result", "")
+                                                if not original_result:
+                                                    # 원본 결과가 없으면 현재 결과를 원본으로 저장
+                                                    original_result = "\n\n".join([
+                                                        f"**{key}**: {value}" 
+                                                        for key, value in current_results.items() 
+                                                        if key != "saved" and key != "original_result" and key != "updated_result" and key != "feedback_applied"
+                                                    ])
+                                                    st.session_state.current_step_outputs["original_result"] = original_result
+                                                
+                                                feedback_prompt = f"""
 기존 분석 결과:
 {original_result}
 
@@ -636,128 +662,124 @@ def render_analysis_execution():
    - 기타: 특별한 요청사항에 따른 맞춤형 수정
 3. 수정된 결과는 기존 분석의 맥락을 유지하면서 피드백을 반영한 형태로 제공해주세요.
 """
-                                            
-                                            # 피드백 처리 실행
-                                            from agent_executor import execute_agent
-                                            updated_result = execute_agent(feedback_prompt)
-                                            
-                                            # 업데이트된 결과 저장
-                                            st.session_state.current_step_outputs["updated_result"] = updated_result
-                                            st.session_state.current_step_outputs["feedback_applied"] = True
-                                            
-                                            # 피드백 히스토리에 추가
-                                            if "feedback_history" not in st.session_state:
-                                                st.session_state.feedback_history = []
-                                            
-                                            st.session_state.feedback_history.append({
-                                                "step": current_step.title,
-                                                "feedback_type": feedback_type,
-                                                "feedback_content": feedback_input,
-                                                "ai_response": updated_result,
-                                                "timestamp": time.time()
-                                            })
-                                            
-                                            # cot_history 업데이트 (마지막 항목을 업데이트된 결과로 교체)
-                                            if st.session_state.cot_history:
-                                                st.session_state.cot_history[-1]["result"] = updated_result
-                                                # utils에서 함수들을 안전하게 import하여 사용
+                                                
+                                                # 피드백 처리 실행
+                                                from agent_executor import execute_agent
+                                                updated_result = execute_agent(feedback_prompt)
+                                                
+                                                # 업데이트된 결과 저장
+                                                st.session_state.current_step_outputs["updated_result"] = updated_result
+                                                st.session_state.current_step_outputs["feedback_applied"] = True
+                                                
+                                                # 피드백 히스토리에 추가
+                                                if "feedback_history" not in st.session_state:
+                                                    st.session_state.feedback_history = []
+                                                
+                                                st.session_state.feedback_history.append({
+                                                    "step": current_step.title,
+                                                    "feedback_type": feedback_type,
+                                                    "feedback_content": feedback_input,
+                                                    "ai_response": updated_result,
+                                                    "timestamp": time.time()
+                                                })
+                                                
+                                                # cot_history 업데이트 (마지막 항목을 업데이트된 결과로 교체)
+                                                if st.session_state.cot_history:
+                                                    st.session_state.cot_history[-1]["result"] = updated_result
+                                                    # utils에서 함수들을 안전하게 import하여 사용
+                                                    try:
+                                                        from utils import extract_summary, extract_insight
+                                                        st.session_state.cot_history[-1]["summary"] = extract_summary(updated_result)
+                                                        st.session_state.cot_history[-1]["insight"] = extract_insight(updated_result)
+                                                    except Exception as summary_error:
+                                                        st.warning(f"⚠️ 요약 생성 중 오류: {summary_error}")
+                                                        st.session_state.cot_history[-1]["summary"] = updated_result[:300] + "..."
+                                                        st.session_state.cot_history[-1]["insight"] = "요약 생성 실패"
+                                                
+                                                st.success("✅ 피드백이 처리되었습니다!")
+                                                st.info(" 피드백이 적용된 결과가 아래에 표시됩니다.")
+                                                
+                                                # 피드백 적용된 결과 즉시 표시
+                                                st.markdown("#### ✨ 피드백 적용된 결과")
+                                                st.markdown(updated_result)
+                                                
+                                            except Exception as e:
+                                                st.error(f"❌ 피드백 처리 중 오류가 발생했습니다: {e}")
+                                                st.error("오류 상세 정보:")
+                                                st.error(f"- 함수: execute_agent")
+                                                st.error(f"- 매개변수: {len(feedback_prompt)} 문자")
+                                                st.error(f"- 피드백 유형: {feedback_type}")
+                                                st.error(f"- 피드백 내용: {feedback_input[:100]}...")
+                                                st.error(f"- 오류 타입: {type(e).__name__}")
+                                                st.error(f"- 오류 위치: {e.__traceback__.tb_lineno if hasattr(e, '__traceback__') else 'N/A'}")
+                                    else:
+                                        st.warning("⚠️ 피드백 내용을 입력해주세요.")
+                                
+                                # 피드백 히스토리 표시
+                                if st.session_state.get("feedback_history"):
+                                    st.markdown("#### 📋 피드백 히스토리")
+                                    for i, feedback in enumerate(st.session_state.feedback_history[-3:], 1):  # 최근 3개만 표시
+                                        with st.expander(f"피드백 {i}: {feedback['feedback_type']}", expanded=False):
+                                            st.markdown(f"**피드백**: {feedback['feedback_content']}")
+                                            st.markdown(f"**AI 응답**: {feedback['ai_response'][:300]}...")
+                            
+                                # 다시 분석 버튼 (원본 결과로 되돌리기)
+                                if st.session_state.get('current_step_outputs', {}).get("feedback_applied"):
+                                    if st.button("🔄 원본 결과로 되돌리기", key=f"revert_original_{current_step.id}"):
+                                        st.session_state.current_step_outputs["feedback_applied"] = False
+                                        if st.session_state.cot_history:
+                                            # 원본 결과로 되돌리기
+                                            original_result = st.session_state.current_step_outputs.get("original_result", "")
+                                            if original_result:
                                                 try:
                                                     from utils import extract_summary, extract_insight
-                                                    st.session_state.cot_history[-1]["summary"] = extract_summary(updated_result)
-                                                    st.session_state.cot_history[-1]["insight"] = extract_insight(updated_result)
+                                                    st.session_state.cot_history[-1]["result"] = original_result
+                                                    st.session_state.cot_history[-1]["summary"] = extract_summary(original_result)
+                                                    st.session_state.cot_history[-1]["insight"] = extract_insight(original_result)
                                                 except Exception as summary_error:
-                                                    st.warning(f"⚠️ 요약 생성 중 오류: {summary_error}")
-                                                    st.session_state.cot_history[-1]["summary"] = updated_result[:300] + "..."
-                                                    st.session_state.cot_history[-1]["insight"] = "요약 생성 실패"
-                                            
-                                            st.success("✅ 피드백이 처리되었습니다!")
-                                            st.info(" 피드백이 적용된 결과가 아래에 표시됩니다.")
-                                            
-                                            # 피드백 적용된 결과 즉시 표시
-                                            st.markdown("#### ✨ 피드백 적용된 결과")
-                                            st.markdown(updated_result)
-                                            
-                                        except Exception as e:
-                                            st.error(f"❌ 피드백 처리 중 오류가 발생했습니다: {e}")
-                                            st.error("오류 상세 정보:")
-                                            st.error(f"- 함수: execute_agent")
-                                            st.error(f"- 매개변수: {len(feedback_prompt)} 문자")
-                                            st.error(f"- 피드백 유형: {feedback_type}")
-                                            st.error(f"- 피드백 내용: {feedback_input[:100]}...")
-                                            st.error(f"- 오류 타입: {type(e).__name__}")
-                                            st.error(f"- 오류 위치: {e.__traceback__.tb_lineno if hasattr(e, '__traceback__') else 'N/A'}")
+                                                    st.warning(f"⚠️ 원본 요약 생성 중 오류: {summary_error}")
+                                                    st.session_state.cot_history[-1]["result"] = original_result
+                                                    st.session_state.cot_history[-1]["summary"] = original_result[:300] + "..."
+                                                    st.session_state.cot_history[-1]["insight"] = "원본 요약 생성 실패"
+                                        st.rerun()
+                            
+                                # 피드백 취소 버튼
+                                if st.button("❌ 피드백 취소", key=f"cancel_feedback_{current_step.id}"):
+                                    st.session_state.show_feedback = False
+                                    st.rerun()
+                            
+                            with col3:
+                                if current_step_index > 0:
+                                    if st.button("⬅️ 이전 단계", key=f"prev_{current_step.id}_{current_step_index}"):
+                                        st.session_state.current_step_index = current_step_index - 1
+                                        st.rerun()
                                 else:
-                                    st.warning("⚠️ 피드백 내용을 입력해주세요.")
+                                    st.markdown("⬅️ 이전 단계")
                             
-                            # 피드백 히스토리 표시
-                            if st.session_state.get("feedback_history"):
-                                st.markdown("#### 📋 피드백 히스토리")
-                                for i, feedback in enumerate(st.session_state.feedback_history[-3:], 1):  # 최근 3개만 표시
-                                    with st.expander(f"피드백 {i}: {feedback['feedback_type']}", expanded=False):
-                                        st.markdown(f"**피드백**: {feedback['feedback_content']}")
-                                        st.markdown(f"**AI 응답**: {feedback['ai_response'][:300]}...")
-                            
-                            # 다시 분석 버튼 (원본 결과로 되돌리기)
-                            if st.session_state.get('current_step_outputs', {}).get("feedback_applied"):
-                                if st.button("🔄 원본 결과로 되돌리기", key=f"revert_original_{current_step.id}"):
-                                    st.session_state.current_step_outputs["feedback_applied"] = False
-                                    if st.session_state.cot_history:
-                                        # 원본 결과로 되돌리기
-                                        original_result = st.session_state.current_step_outputs.get("original_result", "")
-                                        if original_result:
-                                            try:
-                                                from utils import extract_summary, extract_insight
-                                                st.session_state.cot_history[-1]["result"] = original_result
-                                                st.session_state.cot_history[-1]["summary"] = extract_summary(original_result)
-                                                st.session_state.cot_history[-1]["insight"] = extract_insight(original_result)
-                                            except Exception as summary_error:
-                                                st.warning(f"⚠️ 원본 요약 생성 중 오류: {summary_error}")
-                                                st.session_state.cot_history[-1]["result"] = original_result
-                                                st.session_state.cot_history[-1]["summary"] = original_result[:300] + "..."
-                                                st.session_state.cot_history[-1]["insight"] = "원본 요약 생성 실패"
-                                    st.rerun()
-                            
-                            # 피드백 취소 버튼
-                            if st.button("❌ 피드백 취소", key=f"cancel_feedback_{current_step.id}"):
-                                st.session_state.show_feedback = False
-                                st.rerun()
-                        
-                        with col3:
-                            if current_step_index > 0:
-                                if st.button("⬅️ 이전 단계", key=f"prev_{current_step.id}_{current_step_index}"):
-                                    st.session_state.current_step_index = current_step_index - 1
-                                    st.rerun()
-                            else:
-                                st.markdown("⬅️ 이전 단계")
-                        
-                        with col4:
-                            if current_step_index < len(current_steps) - 1:
-                                if st.button("➡️ 다음 단계", key=f"next_{current_step.id}_{current_step_index}"):
-                                    st.session_state.current_step_index = current_step_index + 1
-                                    st.rerun()
-                            else:
-                                if st.button("🏁 완료", key=f"finish_{current_step.id}_{current_step_index}"):
-                                    st.success("모든 분석이 완료되었습니다!")
-                                    st.session_state.analysis_completed = True
+                            with col4:
+                                if current_step_index < len(current_steps) - 1:
+                                    if st.button("➡️ 다음 단계", key=f"next_{current_step.id}_{current_step_index}"):
+                                        st.session_state.current_step_index = current_step_index + 1
+                                        st.rerun()
+                                else:
+                                    if st.button("🏁 완료", key=f"finish_{current_step.id}_{current_step_index}"):
+                                        st.success("모든 분석이 완료되었습니다!")
+                                        st.session_state.analysis_completed = True
                         
                         # 다음 단계 안내
                         if current_step_index < len(current_steps) - 1:
                             next_step = current_steps[current_step_index + 1]
                             st.info(f"➡️ 다음 단계: {next_step.title}")
-                    else:
-                        st.error(f"❌ {current_block['title']} 분석 실패")
                 
-            except Exception as e:
-                st.error(f"❌ 분석 실행 오류: {e}")
-                import traceback
-                st.code(traceback.format_exc())
+            
         
         # 이미 완료된 단계인 경우 결과 표시
         if step_completed:
             st.success(f"✅ {current_step.title} - 분석 완료")
             
             # 결과 표시 - output_structure 기반 탭으로 변경
-            step_result = next((h['result'] for h in st.session_state.cot_history if h['step'] == current_step.title), "")
+            step_title_for_history = current_block['title'] if current_block else current_step.title
+            step_result = next((h['result'] for h in st.session_state.cot_history if h['step'] == step_title_for_history), "")
             
             # DSL에서 output_structure 가져오기
             output_structure = current_block.get("content_dsl", {}).get("output_structure", []) if current_block else []
@@ -2090,7 +2112,9 @@ def render_analysis_workflow():
                     # 분석 시작 시 editable_steps를 workflow_steps로 복사
                     st.session_state.workflow_steps = st.session_state.editable_steps.copy()
                     st.session_state.analysis_started = True
-                    st.session_state.current_step_index = 0
+                    # current_step_index를 0으로 초기화하지 않고 기존 값 유지
+                    if 'current_step_index' not in st.session_state:
+                        st.session_state.current_step_index = 0
                     st.success("🎯 분석이 시작되었습니다!")
                     st.rerun()
 

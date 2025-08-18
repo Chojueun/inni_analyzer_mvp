@@ -97,8 +97,8 @@ def login_page():
     """로그인 페이지"""
     st.markdown("""
     <div style="text-align: center; padding: 40px;">
-        <h1> ArchInsight 로그인</h1>
-        <p>AI-driven Project Insight & Workflow</p>
+        <h1 style="font-size: 2.9rem; font-weight: 900; color: #111; font-family: 'Montserrat', 'Inter', sans-serif; letter-spacing: -2px; margin-bottom: 6px; line-height: 1.13;">ArchInsight 로그인</h1>
+        <p style="font-size: 1.16rem; font-weight: 600; color: #08B89D; letter-spacing: 1.1px; font-family: 'Montserrat', 'Inter', sans-serif;">AI-driven Project Insight & Workflow</p>
     </div>
     """, unsafe_allow_html=True)
     

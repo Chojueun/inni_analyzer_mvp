@@ -41,59 +41,6 @@ logo = Image.open("dA-logo.png")
 logo_resized = logo.resize((100, int(100 * logo.height / logo.width)), Image.Resampling.LANCZOS)
 st.sidebar.image(logo_resized, use_container_width=False)
 
-BANNER_HEIGHT = 220
-
-st.markdown(f"""
-    <style>
-    .banner-bg {{
-        position: fixed;
-        top: 0; left: 0; right: 0;
-        width: 100vw;
-        height: {BANNER_HEIGHT}px;
-        background: #F8F9FA;
-        border-bottom: 2.7px solid #08B89D;
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        align-items: center;
-        padding-bottom: 20px;
-        margin-top: 0;  /* 위쪽 마진 제거 */
-    }}
-    .banner-title {{
-        font-size: 2.9rem;
-        font-weight: 900;
-        color: #111;
-        font-family: 'Montserrat', 'Inter', sans-serif;
-        letter-spacing: -2px;
-        margin-bottom: 6px;
-        line-height: 1.13;
-    }}
-    .banner-subtitle {{
-        font-size: 1.16rem;
-        font-weight: 600;
-        color: #08B89D;
-        letter-spacing: 1.1px;
-        font-family: 'Montserrat', 'Inter', sans-serif;
-    }}
-    /* 컨텐츠 전체를 배너 높이만큼 아래로 */
-    .main .block-container {{
-        margin-top: {BANNER_HEIGHT + 6}px;
-    }}
-    /* 사이드바도 배너 높이만큼 아래로 */
-    .css-1d391kg {{
-        margin-top: {BANNER_HEIGHT + 6}px;
-    }}
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-    <div class="banner-bg">
-        <div class="banner-title">ArchInsight</div>
-        <div class="banner-subtitle">AI-driven Project Insight & Workflow</div>
-    </div>
-""", unsafe_allow_html=True)
-
 # 인증 시스템 초기화
 init_auth()
 
@@ -261,9 +208,13 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         st.session_state.workflow_steps = []
         st.session_state.removed_steps = set()
         st.session_state.added_steps = set()
-        st.session_state.current_step_index = 0
+        # current_step_index를 0으로 초기화하지 않고 기존 값 유지
+        if 'current_step_index' not in st.session_state:
+            st.session_state.current_step_index = 0
         st.session_state.analysis_started = False
-        st.session_state.cot_history = []
+        # cot_history를 초기화하지 않고 기존 값 유지
+        if 'cot_history' not in st.session_state:
+            st.session_state.cot_history = []
         st.session_state.ordered_blocks = []
         st.session_state.selected_purpose = None
         st.session_state.selected_objectives = []
