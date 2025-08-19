@@ -5,7 +5,8 @@ import os
 import time
 import random
 from dotenv import load_dotenv
-from agent_executor import RequirementTableSignature 
+# 순환 import 방지를 위해 제거
+# from agent_executor import RequirementTableSignature 
 import anthropic
 from anthropic import Anthropic
 
