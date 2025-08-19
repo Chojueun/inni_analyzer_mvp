@@ -4,6 +4,7 @@ enableCORS = false
 enableXsrfProtection = false
 maxUploadSize = 200
 fileWatcherType = "none"
+port = 8501
 
 [browser]
 gatherUsageStats = false
@@ -19,4 +20,3 @@ developmentMode = false
 
 [client]
 showErrorDetails = false
-caching = true
