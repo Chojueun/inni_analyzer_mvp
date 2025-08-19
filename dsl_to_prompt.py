@@ -6,7 +6,7 @@ def get_web_search_for_block(block_id: str, user_inputs: dict) -> str:
     
     # 블록별 검색 쿼리 매핑
     search_queries = {
-        "requirement_analysis": [
+        "requirement_analyzer": [  # requirement_analysis → requirement_analyzer로 수정
             f"{user_inputs.get('building_type', '건축')} 요구사항 분석 2024",
             f"{user_inputs.get('building_type', '건축')} 설계 가이드라인"
         ],
@@ -36,7 +36,7 @@ def get_web_search_for_block(block_id: str, user_inputs: dict) -> str:
         try:
             result = search_web_serpapi(query)
             if result and result != "[검색 API 키 없음]":
-                all_results.append(f"🔍 검색어: {query}\n{result}")
+                all_results.append(f"검색어: {query}\n{result}")
         except Exception as e:
             print(f"웹 검색 실패 ({query}): {e}")
     
@@ -58,22 +58,22 @@ def convert_dsl_to_prompt(
     # 0. 블록 ID 및 제목 명시 (새로 추가)
     block_id = dsl_block.get("id", "")
     block_title = dsl_block.get("title", "")
-    prompt_parts.append(f"# 🎯 현재 분석 블록\n")
+    prompt_parts.append(f"# 현재 분석 블록\n")
     prompt_parts.append(f"**블록 ID:** {block_id}\n")
     prompt_parts.append(f"**블록 제목:** {block_title}\n")
     prompt_parts.append(f"**분석 목적:** 이 블록만의 고유한 분석을 수행하세요.\n\n")
     
     # 1. 기본 역할 및 목표
-    prompt_parts.append(f"# 🎯 분석 목표\n{dsl.get('goal', '')}")
+    prompt_parts.append(f"# 분석 목표\n{dsl.get('goal', '')}")
     prompt_parts.append(f"# 역할\n{dsl.get('role', '건축 분석 전문가')}")
     
     if dsl.get('context'):
-        prompt_parts.append(f"# 📍 맥락\n{dsl['context']}")
+        prompt_parts.append(f"# 맥락\n{dsl['context']}")
     
     # 2. 분석 프레임워크
     framework = dsl.get('analysis_framework', {})
     if framework:
-        framework_text = f"# 🔍 분석 프레임워크\n"
+        framework_text = f"# 분석 프레임워크\n"
         framework_text += f"접근 방식: {framework.get('approach', '')}\n"
         framework_text += f"방법론: {framework.get('methodology', '')}\n"
         
@@ -167,7 +167,7 @@ def convert_dsl_to_prompt(
         prompt_parts.append(presentation_text)
     
     # 6. 프로젝트 기본 정보
-    project_info = f"# 📊 프로젝트 기본 정보\n"
+    project_info = f"# 프로젝트 기본 정보\n"
     project_info += f"- 프로젝트명: {user_inputs.get('project_name', 'N/A')}\n"
     project_info += f"- 소유자: {user_inputs.get('owner', 'N/A')}\n"
     project_info += f"- 위치: {user_inputs.get('site_location', 'N/A')}\n"
@@ -178,7 +178,7 @@ def convert_dsl_to_prompt(
     
     # 7. 사이트 분석 정보
     if site_fields:
-        site_text = f"# 🏗️ 사이트 분석 정보\n"
+        site_text = f"# 사이트 분석 정보\n"
         for key, value in site_fields.items():
             if value and str(value).strip():
                 readable_key = key.replace('_', ' ').title()

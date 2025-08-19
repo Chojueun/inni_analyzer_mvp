@@ -340,35 +340,59 @@ class AnalysisSystem:
         """전용도·전목적 공통 필수 블록"""
         return [
             AnalysisStep(
-                id="requirement_analysis",
-                title="요구사항 분석",
-                description="건축주의 명시적/암묵적 요구사항을 체계적으로 분석",
+                id="document_analyzer",  # requirement_analysis → document_analyzer로 수정
+                title="문서 분석 및 건축주 의도 추론",
+                description="입찰/계약 문서의 구조, 요구사항, 언어 패턴을 종합 분석하여 건축주의 명시적/암묵적 의도를 파악",
                 is_required=True,
                 order=1,
+                category="문서분석"
+            ),
+            AnalysisStep(
+                id="requirement_analyzer",  # 새로운 블록 추가
+                title="요구사항 종합 분석 및 전략 도출",
+                description="문서에서 추출된 요구사항을 종합 분석하여 설계 전략과 실행 가능한 방안 도출",
+                is_required=True,
+                order=2,
                 category="요구사항분석"
             ),
             AnalysisStep(
                 id="task_comprehension",
-                title="과업 이해도 및 설계 주안점",
-                description="InnoScan 결과와 과업지시서를 종합 분석해 설계 전제조건, KPI, 제약조건 등을 정리",
+                title="과업 이해 및 목표 설정",
+                description="프로젝트의 핵심 과업과 목표를 명확히 이해하고 분석 방향 설정",
                 is_required=True,
-                order=2,
+                order=3,
                 category="과업이해도"
+            ),
+            AnalysisStep(
+                id="risk_strategist",
+                title="리스크 분석 및 대응 전략",
+                description="프로젝트의 주요 리스크를 식별하고 대응 전략 수립",
+                is_required=True,
+                order=4,
+                category="리스크분석"
             ),
             AnalysisStep(
                 id="site_regulation_analysis",
                 title="대지 환경 및 법규 분석",
                 description="대상 대지의 잠재력과 제약사항을 다각적으로 분석해 후속 설계 전략의 현실적 기반을 마련",
                 is_required=True,
-                order=3,
+                order=5,
                 category="법규분석"
             ),
             AnalysisStep(
-                id="concept_development",
-                title="설계 컨셉 도출 및 평가",
-                description="키워드/요구/KPI를 조합해 설계 컨셉을 도출하고 평가 기준까지 체계화",
+                id="compliance_analyzer",
+                title="규정 준수 및 적법성 분석",
+                description="모든 설계 요소가 관련 규정을 준수하는지 검증하고 적법성 확보",
                 is_required=True,
-                order=4,
+                order=6,
+                category="규정준수"
+            ),
+            AnalysisStep(
+                id="concept_development",
+                title="설계 컨셉 개발 및 평가",
+                description="프로젝트의 핵심 아이디어와 설계 컨셉을 개발하고 평가하여 최적 방안 도출",
+                is_required=True,
+                order=7,
                 category="컨셉개발"
             ),
             AnalysisStep(
@@ -376,31 +400,31 @@ class AnalysisSystem:
                 title="건축설계 방향 및 매스(Mass) 전략",
                 description="전 단계 분석 결과를 통합해 건축설계의 핵심 컨셉과 최적 매스 전략을 도출",
                 is_required=True,
-                order=5,
+                order=8,
                 category="매스전략"
             ),
             AnalysisStep(
                 id="schematic_space_plan",
-                title="평면·단면 스키매틱 및 공간 계획",
-                description="주요 프로그램별 공간·면적 배치, 단면 연계, 실별 수용 인원 등 공간계획을 스키매틱으로 도출",
+                title="스키매틱 공간 계획",
+                description="설계 컨셉을 바탕으로 한 스키매틱 공간 계획 수립",
                 is_required=True,
-                order=6,
+                order=9,
                 category="공간계획"
             ),
             AnalysisStep(
                 id="area_programming",
-                title="면적 산출 및 공간 배분 전략",
+                title="면적 프로그래밍 및 공간 배분",
                 description="수요 기반 분석과 시장/법적 기준을 바탕으로 최적의 공간구성과 면적 배분안을 도출",
                 is_required=True,
-                order=7,
+                order=10,
                 category="면적계획"
             ),
             AnalysisStep(
                 id="cost_estimation",
-                title="비용 및 경제성 분석",
+                title="비용 추정 및 경제성 분석",
                 description="연면적, 용도, 적용 공법 등 입력값을 바탕으로 개략 공사비와 비용구조를 산출하고, 운영비, 관리비, 투자수익률 등 주요 재무지표 기반으로 경제성·운영효율성을 평가",
                 is_required=True,
-                order=8,
+                order=11,
                 category="원가분석"
             )
         ]
@@ -840,30 +864,28 @@ class AnalysisSystem:
         )
 
     def _load_recommended_cot_order(self) -> Dict[str, int]:
-        """권장 CoT 순서 매핑 (원래 23개 블록)"""
+        """권장 CoT 순서 매핑 (20개 블록으로 수정)"""
         return {
-            "doc_collector": 1,
-            "requirements_extractor": 2,
-            "requirement_analysis": 3,
-            "context_analyzer": 4,
-            "task_comprehension": 5,
-            "risk_strategist": 6,
-            "site_regulation_analysis": 7,
-            "compliance_analyzer": 8,
-            "precedent_benchmarking": 9,
-            "competitor_analyzer": 10,
-            "design_trend_application": 11,
-            "mass_strategy": 12,
-            "flexible_space_strategy": 13,
-            "concept_development": 14,
-            "area_programming": 15,
-            "schematic_space_plan": 16,
-            "ux_circulation_simulation": 17,
-            "design_requirement_summary": 18,
-            "cost_estimation": 19,
-            "architectural_branding_identity": 20,
-            "action_planner": 22,
-            "proposal_framework": 23
+            "document_analyzer": 1,           # doc_collector → document_analyzer
+            "requirement_analyzer": 2,        # requirements_extractor → requirement_analyzer
+            "task_comprehension": 3,          # requirement_analysis → task_comprehension
+            "risk_strategist": 4,             # context_analyzer → risk_strategist
+            "site_regulation_analysis": 5,    # 순서 조정
+            "compliance_analyzer": 6,         # 순서 조정
+            "precedent_benchmarking": 7,      # 순서 조정
+            "competitor_analyzer": 8,         # 순서 조정
+            "design_trend_application": 9,    # 순서 조정
+            "mass_strategy": 10,              # 순서 조정
+            "flexible_space_strategy": 11,    # 순서 조정
+            "concept_development": 12,        # 순서 조정
+            "area_programming": 13,           # 순서 조정
+            "schematic_space_plan": 14,       # 순서 조정
+            "ux_circulation_simulation": 15,  # 순서 조정
+            "design_requirement_summary": 16, # 순서 조정
+            "cost_estimation": 17,            # 순서 조정
+            "architectural_branding_identity": 18, # 순서 조정
+            "action_planner": 19,             # 순서 조정
+            "proposal_framework": 20          # 순서 조정
         }
 
     def sort_steps_by_recommended_order(self, steps: List[AnalysisStep]) -> List[AnalysisStep]:

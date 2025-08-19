@@ -330,7 +330,7 @@ if not st.session_state.get('show_project_info', True):
 # ─── 권장 CoT 순서 설명 ─────────────────────────
 with st.expander("권장 CoT 순서 가이드", expanded=False):
     st.markdown("""
-    ### 🎯 권장 분석 순서 (초→중→후)
+    ### 🎯 권장 분석 순서 (초기→중기→후기)
     
     **💡 왜 순서가 중요한가요?**
     
@@ -340,36 +340,44 @@ with st.expander("권장 CoT 순서 가이드", expanded=False):
     
     ---
     
-    **💡 초기 단계 (1-6) - 기반 마련**
+    **🎯 1단계: 초기 분석 (기초 정보 수집 및 기본 분석)**
     
-    1. **doc_collector** — 문서 수집·목차화(근거 라벨 고정)
-    2. **requirements_extractor** — 요구 분류·우선순위 도출
-    3. **requirement_analysis** — 요구사항 매트릭스/제약·우선순위 정리
-    4. **context_analyzer** — 암묵 의도·KPI 보정
-    5. **task_comprehension** — 성공기준·전제조건·리스크 가설 확정
-    6. **risk_strategist** (Gate-A) — 초기 리스크 레지스터; 임계 초과 시 3–5 재루프
+    1. **document_analyzer** — 문서 분석 및 건축주 의도 추론
+    2. **requirement_analyzer** — 요구사항 종합 분석 및 전략 도출
+    3. **task_comprehension** — 과업 이해 및 목표 설정
+    4. **risk_strategist** — 리스크 분석 및 대응 전략
+    5. **site_regulation_analysis** — 대지 환경 및 법규 분석
+    6. **compliance_analyzer** — 규정 준수 및 적법성 분석
     
-    **🎯 중기 단계 (7-12) - 전략 수립**
+    **🔍 2단계: 중기 분석 (참고 자료 조사 및 설계 전략 수립)**
     
-    7. **site_regulation_analysis** — 대지·법규 핵심 제약/기회
-    8. **compliance_analyzer** (Baseline) (Gate-B) — 필수 규정 1차 체크
-    9. **precedent_benchmarking** — 사례 인사이트/운영 모델
-    10. **competitor_analyzer** — 경쟁 포지션·차별화(리테일/업무/숙박 필수)
-    11. **design_trend_application** — 적용 가능한 트렌드 쇼트리스트
-    12. **mass_strategy** — 매스 옵션 세트
+    7. **precedent_benchmarking** — 선진사례 벤치마킹 및 최적 운영전략
+    8. **competitor_analyzer** — 경쟁사 분석 및 차별화 전략
+    9. **design_trend_application** — 통합 디자인 트렌드 적용 전략
+    10. **mass_strategy** — 건축설계 방향 및 매스(Mass) 전략
+    11. **flexible_space_strategy** — 가변형 공간 및 확장성 전략
+    12. **concept_development** — 설계 컨셉 개발 및 평가
+    13. **area_programming** — 면적 프로그래밍 및 공간 배분
+    14. **schematic_space_plan** — 스키매틱 공간 계획
+    15. **ux_circulation_simulation** — 사용자 경험 및 동선 시뮬레이션
     
-    **💡 후기 단계 (13-23) - 설계 실행**
+    **📋 3단계: 후기 분석 (종합 정리 및 실행 계획)**
     
-    13. **flexible_space_strategy** — 가변/확장 원칙(문화/교육/업무 등 필수)
-    14. **concept_development** — 컨셉 문장·평가기준
-    15. **area_programming** — 공간별 적정면적/배분 원칙
-    16. **schematic_space_plan** — 평면·단면 스키매틱
-    17. **ux_circulation_simulation** — 시나리오별 동선 시뮬(운수/의료/운동/리테일/노유자 필수)
-    18. **design_requirement_summary** — 최종 요구·가이드라인(체크리스트 포함)
-    19. **cost_estimation** — 공사비 모델/변동요인
-    20. **architectural_branding_identity** — 브랜딩/차별화 메시지 정렬
-    21. **action_planner** — 실행 체크리스트(담당·기한·리스크 링크)
-    22. **proposal_framework** — 제안서 와이어프레임/슬라이드 구조
+    16. **design_requirement_summary** — 설계 요구사항 종합 요약
+    17. **cost_estimation** — 비용 추정 및 경제성 분석
+    18. **architectural_branding_identity** — 건축 브랜딩 및 정체성 전략
+    19. **action_planner** — 실행 계획 및 액션 플랜
+    20. **proposal_framework** — 제안서 프레임워크 및 작성 가이드
+    
+    ---
+    
+    **📊 각 단계별 특징**
+    
+    | 단계 | 블록 수 | 주요 목적 | 특징 |
+    |------|---------|-----------|------|
+    | **초기 분석** | 6개 | 기초 정보 수집 및 기본 분석 | 문서 분석, 요구사항 파악, 리스크 식별 |
+    | **중기 분석** | 9개 | 참고 자료 조사 및 설계 전략 | 사례 조사, 설계 전략, 공간 계획 |
+    | **후기 분석** | 5개 | 종합 정리 및 실행 계획 | 요약, 비용 분석, 실행 계획 |
     """)
 
 

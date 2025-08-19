@@ -1135,9 +1135,10 @@ def render_report_tab():
         st.subheader("각 단계별 분석 결과")
         for i, history in enumerate(st.session_state.cot_history, 1):
             with st.expander(f"{i}. {history['step']}", expanded=True):
-                st.markdown(f"**요약:** {history.get('summary', '')}")
-                st.markdown(f"**인사이트:** {history.get('insight', '')}")
-                st.markdown("---")
+                # 요약과 인사이트 제거
+                # st.markdown(f"**요약:** {history.get('summary', '')}")
+                # st.markdown(f"**인사이트:** {history.get('insight', '')}")
+                # st.markdown("---")
                 st.markdown(history.get('result', ''))
         
         # PDF/Word 다운로드 섹션 추가 (Tab 6에서 이동)
@@ -1196,93 +1197,93 @@ def render_report_tab():
                 except Exception as e:
                     st.error(f"Word 생성 오류: {e}")
         
-        # 전체 누적 분석 결과
-        st.markdown("---")
-        st.subheader("전체 누적 분석 결과")
+        # 전체 누적 분석 결과 섹션 제거
+        # st.markdown("---")
+        # st.subheader("전체 누적 분석 결과")
         
-        # 사용자 입력 가져오기
-        from user_state import get_user_inputs
-        user_inputs = get_user_inputs()
+        # # 사용자 입력 가져오기
+        # from user_state import get_user_inputs
+        # user_inputs = get_user_inputs()
         
-        st.markdown("#### 📋 프로젝트 기본 정보")
-        project_info_text = f"""
-        **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
-        **건축주**: {user_inputs.get('owner', 'N/A')}
-        **대지위치**: {user_inputs.get('site_location', 'N/A')}
-        **대지면적**: {user_inputs.get('site_area', 'N/A')}
-        **건물용도**: {user_inputs.get('building_type', 'N/A')}
-        **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
-        """
-        st.markdown(project_info_text)
+        # st.markdown("#### 📋 프로젝트 기본 정보")
+        # project_info_text = f"""
+        # **프로젝트명**: {user_inputs.get('project_name', 'N/A')}
+        # **건축주**: {user_inputs.get('owner', 'N/A')}
+        # **대지위치**: {user_inputs.get('site_location', 'N/A')}
+        # **대지면적**: {user_inputs.get('site_area', 'N/A')}
+        # **건물용도**: {user_inputs.get('building_type', 'N/A')}
+        # **프로젝트 목표**: {user_inputs.get('project_goal', 'N/A')}
+        # """
+        # st.markdown(project_info_text)
         
-        # 전체 분석 결과를 output_structure 기반 동적 탭으로 표시
-        st.markdown("#### 전체 분석 결과")
+        # # 전체 분석 결과를 output_structure 기반 동적 탭으로 표시
+        # st.markdown("#### 전체 분석 결과")
         
-        # DSL에서 output_structure 가져오기
-        from prompt_loader import load_prompt_blocks
-        blocks = load_prompt_blocks()
-        extra_blocks = blocks["extra"]
+        # # DSL에서 output_structure 가져오기
+        # from prompt_loader import load_prompt_blocks
+        # blocks = load_prompt_blocks()
+        # extra_blocks = blocks["extra"]
         
-        # 모든 단계의 output_structure 수집
-        all_output_structures = set()
-        for block in extra_blocks:
-            if "content_dsl" in block and "output_structure" in block["content_dsl"]:
-                for structure in block["content_dsl"]["output_structure"]:
-                    all_output_structures.add(structure)
+        # # 모든 단계의 output_structure 수집
+        # all_output_structures = set()
+        # for block in extra_blocks:
+        #     if "content_dsl" in block and "output_structure" in block["content_dsl"]:
+        #         for structure in block["content_dsl"]["output_structure"]:
+        #             all_output_structures.add(structure)
         
-        if all_output_structures:
-            # output_structure 기반 동적 탭 생성
-            result_tabs = st.tabs(list(all_output_structures))
+        # if all_output_structures:
+        #     # output_structure 기반 동적 탭 생성
+        #     result_tabs = st.tabs(list(all_output_structures))
             
-            for i, (tab, structure_name) in enumerate(zip(result_tabs, all_output_structures)):
-                with tab:
-                    st.markdown(f"### {structure_name}")
+        #     for i, (tab, structure_name) in enumerate(zip(result_tabs, all_output_structures)):
+        #         with tab:
+        #             st.markdown(f"### {structure_name}")
                     
-                    # 각 단계별로 해당 구조에 맞는 내용 표시
-                    for j, history in enumerate(st.session_state.cot_history):
-                        st.markdown(f"####  단계 {j+1}: {history.get('step', f'단계 {j+1}')}")
+        #             # 각 단계별로 해당 구조에 맞는 내용 표시
+        #             for j, history in enumerate(st.session_state.cot_history):
+        #                 st.markdown(f"####  단계 {j+1}: {history.get('step', f'단계 {j+1}')}")
                         
-                        # 구조별로 다른 표시 방식
-                        if "매트릭스" in structure_name or "표" in structure_name:
-                            st.markdown("##### 구조화된 데이터")
-                            st.markdown(history.get('result', '')[:500] + "...")
-                        elif "분석" in structure_name or "추론" in structure_name:
-                            st.markdown("##### 분석 및 추론")
-                            st.markdown(history.get('result', '')[:500] + "...")
-                        else:
-                            st.markdown("##### 일반 결과")
-                            st.markdown(history.get('result', '')[:500] + "...")
-        else:
-            # 기본 탭 구조
-            tab1, tab2, tab3, tab4 = st.tabs(["요구사항", "AI 추론", "유사 사례비교", "전략제언"])
+        #                 # 구조별로 다른 표시 방식
+        #                 if "매트릭스" in structure_name or "표" in structure_name:
+        #                     st.markdown("##### 구조화된 데이터")
+        #                     st.markdown(history.get('result', '')[:500] + "...")
+        #                 elif "분석" in structure_name or "추론" in structure_name:
+        #                     st.markdown("##### 분석 및 추론")
+        #                     st.markdown(history.get('result', '')[:500] + "...")
+        #                 else:
+        #                     st.markdown("##### 일반 결과")
+        #                     st.markdown(history.get('result', '')[:500] + "...")
+        # else:
+        #     # 기본 탭 구조
+        #     tab1, tab2, tab3, tab4 = st.tabs(["요구사항", "AI 추론", "유사 사례비교", "전략제언"])
             
-            with tab1:
-                st.markdown("#### 요구사항 정리표")
-                for history in st.session_state.cot_history:
-                    st.markdown(f"**{history.get('step', '')}**")
-                    st.markdown(history.get('result', '')[:300] + "...")
-                    st.markdown("---")
+        #     with tab1:
+        #         st.markdown("#### 요구사항 정리표")
+        #         for history in st.session_state.cot_history:
+        #             st.markdown(f"**{history.get('step', '')}**")
+        #             st.markdown(history.get('result', '')[:300] + "...")
+        #             st.markdown("---")
             
-            with tab2:
-                st.markdown("#### AI 추론 해설")
-                for history in st.session_state.cot_history:
-                    st.markdown(f"**{history.get('step', '')}**")
-                    st.markdown(history.get('result', '')[:300] + "...")
-                    st.markdown("---")
+        #     with tab2:
+        #         st.markdown("#### AI 추론 해설")
+        #         for history in st.session_state.cot_history:
+        #             st.markdown(f"**{history.get('step', '')}**")
+        #             st.markdown(history.get('result', '')[:300] + "...")
+        #             st.markdown("---")
             
-            with tab3:
-                st.markdown("#### 유사 사례 비교")
-                for history in st.session_state.cot_history:
-                    st.markdown(f"**{history.get('step', '')}**")
-                    st.markdown(history.get('result', '')[:300] + "...")
-                    st.markdown("---")
+        #     with tab3:
+        #         st.markdown("#### 유사 사례 비교")
+        #         for history in st.session_state.cot_history:
+        #             st.markdown(f"**{history.get('step', '')}**")
+        #             st.markdown(history.get('result', '')[:300] + "...")
+        #             st.markdown("---")
             
-            with tab4:
-                st.markdown("#### 전략적 제언 및 시사점")
-                for history in st.session_state.cot_history:
-                    st.markdown(f"**{history.get('step', '')}**")
-                    st.markdown(history.get('result', '')[:300] + "...")
-                    st.markdown("---")
+        #     with tab4:
+        #         st.markdown("#### 전략적 제언 및 시사점")
+        #         for history in st.session_state.cot_history:
+        #             st.markdown(f"**{history.get('step', '')}**")
+        #             st.markdown(history.get('result', '')[:300] + "...")
+        #             st.markdown("---")
     else:
         st.info("�� 분석을 먼저 진행해주세요.")
 
