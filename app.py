@@ -10,7 +10,8 @@ from user_state import (
 from summary_generator import summarize_pdf, extract_site_analysis_fields
 from utils_pdf import save_pdf_chunks_to_chroma, get_pdf_summary_from_session, set_pdf_summary_to_session
 from utils import extract_summary, extract_insight
-from init_dspy import *
+# DSPy import 제거 - 필요할 때만 import
+# from init_dspy import *
 from dsl_to_prompt import (
     convert_dsl_to_prompt, prompt_requirement_table, prompt_ai_reasoning,
     prompt_precedent_comparison, prompt_strategy_recommendation
@@ -63,74 +64,46 @@ if st.session_state.current_user == "admin":
 with st.sidebar:
     st.markdown("### AI 모델 선택")
     
-    from init_dspy import get_model_info, get_available_models_sdk
-    
-    # SDK로 실시간 모델 목록 가져오기
+    # DSPy import 지연
     try:
-        sdk_models = get_available_models_sdk()
-        if sdk_models:
-            display_models = sdk_models
-            st.success(f"SDK에서 {len(sdk_models)}개 모델 조회됨")
-        else:
+        from init_dspy import get_model_info, get_available_models_sdk
+        
+        # SDK로 실시간 모델 목록 가져오기
+        try:
+            sdk_models = get_available_models_sdk()
+            if sdk_models:
+                display_models = sdk_models
+                st.success(f"SDK에서 {len(sdk_models)}개 모델 조회됨")
+            else:
+                from init_dspy import available_models
+                display_models = available_models
+                st.warning("SDK 조회 실패, 기본 모델 목록 사용")
+        except Exception as e:
             from init_dspy import available_models
             display_models = available_models
-            st.warning("SDK 조회 실패, 기본 모델 목록 사용")
+            st.error(f"모델 목록 조회 오류: {e}")
+        
+        # 현재 선택된 모델
+        if 'selected_model' not in st.session_state:
+            st.session_state.selected_model = "claude-3-5-sonnet-20241022"
+        
+        # 모델 선택 드롭다운
+        selected_model = st.selectbox(
+            "Claude 모델 선택",
+            options=display_models,
+            index=display_models.index(st.session_state.selected_model) if st.session_state.selected_model in display_models else 0,
+            format_func=lambda x: f"{x} (SDK)" if x in sdk_models else f"{x} (기본)",
+            help="분석에 사용할 Claude 모델을 선택하세요"
+        )
+        
+        # 모델 변경 시 세션 상태만 업데이트 (DSPy 설정 변경 안함)
+        if selected_model != st.session_state.selected_model:
+            st.session_state.selected_model = selected_model
+            st.success(f"모델이 {selected_model}로 변경되었습니다!")
+            
     except Exception as e:
-        from init_dspy import available_models
-        display_models = available_models
-        st.error(f"모델 목록 조회 오류: {e}")
-    
-    # 현재 선택된 모델
-    if 'selected_model' not in st.session_state:
-        st.session_state.selected_model = "claude-3-5-sonnet-20241022"
-    
-    # 모델 선택 드롭다운
-    selected_model = st.selectbox(
-        "Claude 모델 선택",
-        options=display_models,
-        index=display_models.index(st.session_state.selected_model) if st.session_state.selected_model in display_models else 0,
-        format_func=lambda x: f"{x} (SDK)" if x in sdk_models else f"{x} (기본)",
-        help="분석에 사용할 Claude 모델을 선택하세요"
-    )
-    
-    # 모델 변경 시 세션 상태만 업데이트 (DSPy 설정 변경 안함)
-    if selected_model != st.session_state.selected_model:
-        st.session_state.selected_model = selected_model
-        st.success(f"모델이 {selected_model}로 변경되었습니다!")
-    
-    # 모델 정보 표시
-    model_info = get_model_info()
-    if selected_model in model_info:
-        info = model_info[selected_model]
-        st.info(f"""
-        **{info['name']}**
-        - 속도: {info['speed']}
-        - 성능: {info['power']}
-        - 비용: {info['cost']}
-        - 용도: {info['best_for']}
-        """)
-    
-    # 모델 새로고침 버튼
-    if st.button("모델 목록 새로고침"):
-        st.rerun()
-    
-    # 작업 유형별 모델 추천 (수정된 버전)
-    st.markdown("#### 작업별 추천 모델")
-    
-    task_recommendations = {
-        "빠른 분석": "claude-3-5-haiku-20241022",
-        "상세 분석": "claude-3-5-sonnet-20241022", 
-        "복잡한 분석": "claude-3-opus-20240229",
-        "비용 절약": "claude-3-haiku-20240307"
-    }
-    
-    for task, model in task_recommendations.items():
-        model_name = model_info.get(model, {}).get('name', model)
-        if st.button(f"{task}", key=f"recommend_{model}", help=f"{model_name} 사용"):
-            # DSPy 설정 변경 없이 세션 상태만 업데이트
-            st.session_state.selected_model = model
-            st.success(f"{task}용 모델({model_name})으로 변경되었습니다!")
-            st.rerun()
+        st.error(f"모델 설정 오류: {e}")
+        st.info("기본 모델을 사용합니다.")
 
 # ─── 초기화 ─────────────────────────────────────────────
 init_user_state()
