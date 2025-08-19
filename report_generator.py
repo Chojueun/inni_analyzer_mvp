@@ -178,7 +178,7 @@ def generate_pdf_report(content, user_inputs):
     
     # 제목 추가
     project_name = user_inputs.get('project_name', '프로젝트')
-    title_text = f"📊 {project_name} 분석 보고서"
+    title_text = f"{project_name} 분석 보고서"
     story.append(Paragraph(title_text, title_style))
     story.append(Spacer(1, 20))
     
@@ -275,7 +275,7 @@ def generate_pdf_report(content, user_inputs):
         simple_story = []
         
         # 간단한 텍스트로 변환
-        simple_story.append(Paragraph(f"📊 {project_name} 분석 보고서", title_style))
+        simple_story.append(Paragraph(f"{project_name} 분석 보고서", title_style))
         simple_story.append(Spacer(1, 20))
         
         # 원본 텍스트를 그대로 사용 (HTML 태그 제거)
@@ -302,7 +302,7 @@ def generate_word_report(content, user_inputs):
     
     # 제목 설정
     project_name = user_inputs.get('project_name', '프로젝트')
-    title = doc.add_heading(f"📊 {project_name} 분석 보고서", 0)
+    title = doc.add_heading(f"{project_name} 분석 보고서", 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
     # 내용 파싱 및 추가
@@ -387,7 +387,7 @@ def generate_report_content(report_type, include_charts, include_recommendations
     if st.session_state.get('cot_history'):
         if report_type == "전체 분석 보고서":
             # 전체 분석 보고서: 모든 상세 내용 포함
-            report_content += "## 📊 전체 분석 결과\n"
+            report_content += "## 전체 분석 결과\n"
             for i, history in enumerate(st.session_state.cot_history, 1):
                 report_content += f"""
 ### {i}. {history['step']}
@@ -417,7 +417,7 @@ def generate_report_content(report_type, include_charts, include_recommendations
         
         elif report_type == "전문가 보고서":
             # 전문가 보고서: 기술적 분석과 전문적 권장사항
-            report_content += "## 🧠 전문가 분석 결과\n"
+            report_content += "## 전문가 분석 결과\n"
             for i, history in enumerate(st.session_state.cot_history, 1):
                 report_content += f"""
 ### {i}. {history['step']}
@@ -453,17 +453,17 @@ def generate_report_content(report_type, include_charts, include_recommendations
     if include_charts:
         if report_type == "전체 분석 보고서":
             report_content += """
-## 📊 상세 차트 및 다이어그램
+## 상세 차트 및 다이어그램
 (모든 차트 및 다이어그램이 포함됩니다)
 """
         elif report_type == "요약 보고서":
             report_content += """
-## 📊 핵심 차트
+## 핵심 차트
 (주요 차트만 포함됩니다)
 """
         elif report_type == "전문가 보고서":
             report_content += """
-## 🧠 전문가 차트 및 분석 다이어그램
+## 전문가 차트 및 분석 다이어그램
 (기술적 분석을 위한 상세 차트가 포함됩니다)
 """
         elif report_type == "클라이언트 보고서":

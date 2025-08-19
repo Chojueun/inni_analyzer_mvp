@@ -39,30 +39,30 @@ def dsl_to_content(dsl: dict) -> str:
     """
     content_dsl 형식을 일반 텍스트 content로 변환
     """
-    lines = [f"📌 (AI 추론을 통한 분석 결과:)"]
+    lines = [f"(AI 추론을 통한 분석 결과:)"]
 
     if "goal" in dsl:
-        lines.append(f"\n🎯 목표: {dsl['goal']}")
+        lines.append(f"\n목표: {dsl['goal']}")
     
     if "role" in dsl:
-        lines.append(f"\n👤 역할: {dsl['role']}")
+        lines.append(f"\n역할: {dsl['role']}")
     
     if "context" in dsl:
-        lines.append(f"\n📍 맥락: {dsl['context']}")
+        lines.append(f"\n맥락: {dsl['context']}")
     
     if "source" in dsl:
         sources = ", ".join(dsl["source"])
-        lines.append(f"\n📂 정보 출처: {sources}")
+        lines.append(f"\n정보 출처: {sources}")
     
     if "tasks" in dsl:
-        lines.append("\n📝 주요 분석 항목:")
+        lines.append("\n주요 분석 항목:")
         for t in dsl["tasks"]:
             lines.append(f"- {t}")
     
     # analysis_framework 처리
     if "analysis_framework" in dsl:
         framework = dsl["analysis_framework"]
-        lines.append(f"\n🔍 분석 프레임워크:")
+        lines.append(f"\n분석 프레임워크:")
         if "approach" in framework:
             lines.append(f"- 접근 방식: {framework['approach']}")
         if "methodology" in framework:
@@ -74,7 +74,7 @@ def dsl_to_content(dsl: dict) -> str:
     
     # output_structure 처리
     if "output_structure" in dsl:
-        lines.append(f"\n📋 출력 구조:")
+        lines.append(f"\n출력 구조:")
         for structure in dsl["output_structure"]:
             lines.append(f"- {structure}")
     
