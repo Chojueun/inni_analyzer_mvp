@@ -50,7 +50,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # 로그인된 사용자 정보 표시
-st.sidebar.markdown(f"### 👤 {st.session_state.current_user}")
+st.sidebar.markdown(f"### {st.session_state.current_user}")
 if st.sidebar.button("로그아웃"):
     logout()
 
@@ -61,7 +61,7 @@ if st.session_state.current_user == "admin":
 
 # 사이드바에서 실행 방식 선택 제거
 with st.sidebar:
-    st.markdown("### 🤖 AI 모델 선택")
+    st.markdown("### AI 모델 선택")
     
     from init_dspy import get_model_info, get_available_models_sdk
     
@@ -70,15 +70,15 @@ with st.sidebar:
         sdk_models = get_available_models_sdk()
         if sdk_models:
             display_models = sdk_models
-            st.success(f"✅ SDK에서 {len(sdk_models)}개 모델 조회됨")
+            st.success(f"SDK에서 {len(sdk_models)}개 모델 조회됨")
         else:
             from init_dspy import available_models
             display_models = available_models
-            st.warning("⚠️ SDK 조회 실패, 기본 모델 목록 사용")
+            st.warning("SDK 조회 실패, 기본 모델 목록 사용")
     except Exception as e:
         from init_dspy import available_models
         display_models = available_models
-        st.error(f"❌ 모델 목록 조회 오류: {e}")
+        st.error(f"모델 목록 조회 오류: {e}")
     
     # 현재 선택된 모델
     if 'selected_model' not in st.session_state:
@@ -96,7 +96,7 @@ with st.sidebar:
     # 모델 변경 시 세션 상태만 업데이트 (DSPy 설정 변경 안함)
     if selected_model != st.session_state.selected_model:
         st.session_state.selected_model = selected_model
-        st.success(f"✅ 모델이 {selected_model}로 변경되었습니다!")
+        st.success(f"모델이 {selected_model}로 변경되었습니다!")
     
     # 모델 정보 표시
     model_info = get_model_info()
@@ -111,11 +111,11 @@ with st.sidebar:
         """)
     
     # 모델 새로고침 버튼
-    if st.button("🔄 모델 목록 새로고침"):
+    if st.button("모델 목록 새로고침"):
         st.rerun()
     
     # 작업 유형별 모델 추천 (수정된 버전)
-    st.markdown("#### 💡 작업별 추천 모델")
+    st.markdown("#### 작업별 추천 모델")
     
     task_recommendations = {
         "빠른 분석": "claude-3-5-haiku-20241022",
@@ -126,10 +126,10 @@ with st.sidebar:
     
     for task, model in task_recommendations.items():
         model_name = model_info.get(model, {}).get('name', model)
-        if st.button(f"📋 {task}", key=f"recommend_{model}", help=f"{model_name} 사용"):
+        if st.button(f"{task}", key=f"recommend_{model}", help=f"{model_name} 사용"):
             # DSPy 설정 변경 없이 세션 상태만 업데이트
             st.session_state.selected_model = model
-            st.success(f"✅ {task}용 모델({model_name})으로 변경되었습니다!")
+            st.success(f"{task}용 모델({model_name})으로 변경되었습니다!")
             st.rerun()
 
 # ─── 초기화 ─────────────────────────────────────────────
@@ -157,7 +157,7 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         st.text_input("프로젝트 목표", key="project_goal", placeholder="예: Develop an innovative training campus...")
     
     # PDF 업로드
-    uploaded_pdf = st.file_uploader("📎 PDF 업로드", type=["pdf"])
+    uploaded_pdf = st.file_uploader("PDF 업로드", type=["pdf"])
     if uploaded_pdf:
         # PDF 처리 로직 (간단 저장만 사용)
         pdf_bytes = uploaded_pdf.read()
@@ -167,9 +167,9 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         
         # 간단 저장 사용
         if save_pdf_chunks_to_chroma(temp_path, pdf_id="projectA"):
-            st.success("✅ PDF 저장 완료!")
+            st.success("PDF 저장 완료!")
         else:
-            st.error("❌ PDF 저장 실패!")
+            st.error("PDF 저장 실패!")
         
         # PDF 텍스트 추출 및 요약 (기존 코드)
         from utils_pdf import extract_text_from_pdf
@@ -192,13 +192,13 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
         # 품질 정보 표시
         quality = comprehensive_result["quality"]
         if quality["grade"] in ["A+", "A"]:
-            st.success("✅ PDF 분석 품질: 우수")
+            st.success("PDF 분석 품질: 우수")
         elif quality["grade"] in ["B+", "B"]:
-            st.info("ℹ️ PDF 분석 품질: 양호")
+            st.info("PDF 분석 품질: 양호")
         else:
-            st.warning("⚠️ PDF 분석 품질: 개선 필요")
+            st.warning("PDF 분석 품질: 개선 필요")
 
-        st.success("✅ PDF 요약 완료!")
+        st.success("PDF 요약 완료!")
     
     # 정보 입력 완료 버튼
     if st.button("정보 입력 완료", type="primary"):
@@ -225,7 +225,7 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
 
 # ─── 사이드바에 추가 선택 가능한 단계들 (프로젝트 정보 완료 후 표시) ─────────────────────────
 if not st.session_state.get('show_project_info', True):
-    st.sidebar.markdown("### 📋 추가 선택 가능한 단계")
+    st.sidebar.markdown("### 추가 선택 가능한 단계")
     
     # 프롬프트 블록 로드
     from prompt_loader import load_prompt_blocks
@@ -325,10 +325,10 @@ if not st.session_state.get('show_project_info', True):
                     st.session_state.added_steps = set()
                 st.session_state.added_steps.add(block_id)
     else:
-        st.sidebar.info("✅ 모든 관련 단계가 자동으로 선택되었습니다.")
+        st.sidebar.info("모든 관련 단계가 자동으로 선택되었습니다.")
 
 # ─── 권장 CoT 순서 설명 ─────────────────────────
-with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
+with st.expander("권장 CoT 순서 가이드", expanded=False):
     st.markdown("""
     ### 🎯 권장 분석 순서 (초→중→후)
     
@@ -372,8 +372,6 @@ with st.expander("📖 권장 CoT 순서 가이드", expanded=False):
     22. **proposal_framework** — 제안서 와이어프레임/슬라이드 구조
     """)
 
-# ─── 분석 시작 전 단계 정렬 및 시작 ─────────────────────────
-# 이 섹션 제거 (탭 인터페이스 후에 처리됨)
 
 # ─── 3. 새로운 탭 기반 인터페이스 ───────────────────────────
 from workflow_ui import render_tabbed_interface
@@ -381,45 +379,33 @@ from workflow_ui import render_tabbed_interface
 # 탭 기반 인터페이스 렌더링
 render_tabbed_interface()
 
-# ─── 4. 누적된 이전 분석 결과 ───────────────────────────
-# 이 부분 제거 (탭 인터페이스에서 처리됨)
-# if st.session_state.cot_history:
-#     st.markdown("### 누적 분석 결과")
-#     for entry in st.session_state.cot_history:
-#         st.markdown(f"#### {entry['step']}")
-#         st.markdown(f"**요약:** {entry.get('summary', '')}")
-#         st.markdown(f"**인사이트:** {entry.get('insight', '')}")
-#         st.markdown(f"---\n{entry['result']}")
-#         st.markdown("---")
-
-# 웹페이지 생성과 전체 분석 보고서는 보고서 생성 탭으로 이동
 
 # PDF 업로드 시 디버깅 정보
 if st.session_state.get('uploaded_pdf'):
-    st.sidebar.success("✅ PDF 업로드 완료")
+    st.sidebar.success("PDF 업로드 완료")
     
     # PDF 처리 상태 확인
     if st.session_state.get("pdf_summary"):
-        st.sidebar.success("✅ PDF 요약 완료")
+        st.sidebar.success("PDF 요약 완료")
     else:
-        st.sidebar.warning("⚠️ PDF 요약 처리 중...")
+        st.sidebar.warning("PDF 요약 처리 중...")
     
     # PDF 처리 상태 확인
     if st.session_state.get("pdf_chunks"):
-        st.sidebar.success("✅ PDF 텍스트 저장 완료")
+        st.sidebar.success("PDF 텍스트 저장 완료")
     else:
-        st.sidebar.warning("⚠️ PDF 텍스트 처리 중...")
+        st.sidebar.warning("PDF 텍스트 처리 중...")
 
 # Rate Limit 경고
 if st.session_state.get("api_calls", 0) > 10:
-    st.sidebar.warning("⚠️ API 호출이 많습니다. 잠시 대기해주세요.")
+    st.sidebar.warning("API 호출이 많습니다. 잠시 대기해주세요.")
 
 # Rate Limit 오류 발생 시 대기 후 재시도
 if "rate_limit_wait" not in st.session_state:
     st.session_state.rate_limit_wait = False
 
 if st.session_state.rate_limit_wait:
-    st.warning("⚠️ Rate Limit으로 인해 1분 대기 중입니다...")
+    st.warning("Rate Limit으로 인해 1분 대기 중입니다...")
     time.sleep(60)
     st.session_state.rate_limit_wait = False
     st.rerun()

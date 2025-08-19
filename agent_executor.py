@@ -185,9 +185,9 @@ def run_full_analysis(full_prompt):
     pre = run_precedent_comparison(full_prompt)
     strat = run_strategy_recommendation(full_prompt)
     output = (
-        "📊 요구사항 정리표\n" + req + "\n\n" +
-        "🧠 AI 추론 해설\n" + ai + "\n\n" +
-        "🧾 유사 사례 비교\n" + pre + "\n\n" +
-        "✅ 전략적 제언 및 시사점\n" + strat
+        "요구사항 정리표\n" + req + "\n\n" +
+        "AI 추론 해설\n" + ai + "\n\n" +
+        "유사 사례 비교\n" + pre + "\n\n" +
+        "전략적 제언 및 시사점\n" + strat
     )
     return output
