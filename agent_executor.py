@@ -3,7 +3,8 @@ import dspy
 from dspy import Module, Signature, InputField, OutputField
 from dspy.teleprompt.bootstrap import BootstrapFewShot
 from dspy.predict.react import ReAct
-from init_dspy import *
+# 순환 import 방지를 위해 필요한 함수만 import
+from init_dspy import execute_with_sdk, execute_with_sdk_with_retry, get_optimal_model
 import time
 import random
 

@@ -3,6 +3,8 @@ headless = true
 enableCORS = false
 enableXsrfProtection = false
 maxUploadSize = 200
+fileWatcherType = "none"
+port = 8501
 
 [browser]
 gatherUsageStats = false
@@ -15,3 +17,6 @@ textColor = "#262730"
 
 [global]
 developmentMode = false
+
+[client]
+showErrorDetails = false
