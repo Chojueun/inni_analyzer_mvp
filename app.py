@@ -7,7 +7,7 @@ from prompt_loader import load_prompt_blocks
 from user_state import (
     init_user_state, get_user_inputs, save_step_result, append_step_history, get_current_step_index
 )
-from summary_generator import summarize_pdf, extract_site_analysis_fields
+from summary_generator import summarize_pdf, extract_site_analysis_fields, analyze_pdf_in_chunks
 from utils_pdf import save_pdf_chunks_to_chroma, get_pdf_summary_from_session, set_pdf_summary_to_session
 from utils import extract_summary, extract_insight
 # DSPy import 제거 - 필요할 때만 import
@@ -105,6 +105,8 @@ with st.sidebar:
         st.error(f"모델 설정 오류: {e}")
         st.info("기본 모델을 사용합니다.")
 
+
+
 # ─── 초기화 ─────────────────────────────────────────────
 init_user_state()
 
@@ -150,8 +152,8 @@ with st.expander("프로젝트 정보 입력", expanded=st.session_state.get('sh
 
         pdf_text = extract_text_from_pdf(pdf_bytes, "bytes")
 
-        # 새로운 고급 분석 사용
-        comprehensive_result = analyze_pdf_comprehensive(pdf_text)
+        # 새로운 고급 분석 사용 (청크 분석)
+        comprehensive_result = analyze_pdf_in_chunks(pdf_text)
 
         # 기존 호환성을 위한 처리
         pdf_summary = comprehensive_result["summary"]

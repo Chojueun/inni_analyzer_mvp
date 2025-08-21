@@ -46,7 +46,7 @@ def register_korean_font():
     return False
 
 def clean_text_for_pdf(text):
-    """PDF용 텍스트 정리 - HTML 태그 제거 및 안전한 형식으로 변환"""
+    """PDF용 텍스트 정리 - HTML 태그 제거 및 안전한 형식으로 변환 - 개선된 버전"""
     if not text:
         return ""
     
@@ -58,75 +58,295 @@ def clean_text_for_pdf(text):
     text = text.replace('•', '•')  # bullet point
     text = text.replace('–', '-')  # en dash
     text = text.replace('—', '-')  # em dash
+    text = text.replace('"', '"')  # smart quotes
+    text = text.replace('"', '"')  # smart quotes
+    text = text.replace(''', "'")  # smart apostrophe
+    text = text.replace(''', "'")  # smart apostrophe
     
-    # 연속된 공백 정리
-    text = re.sub(r'\s+', ' ', text)
+    # 표 관련 특수 문자 처리
+    text = text.replace('│', '|')  # box drawing characters
+    text = text.replace('┌', '')
+    text = text.replace('┐', '')
+    text = text.replace('└', '')
+    text = text.replace('┘', '')
+    text = text.replace('├', '')
+    text = text.replace('┤', '')
+    text = text.replace('┬', '')
+    text = text.replace('┴', '')
+    text = text.replace('─', '-')
     
-    # 줄바꿈 정리
-    text = re.sub(r'\n\s*\n', '\n\n', text)
+    # 연속된 공백 정리 (표 셀 내에서는 보존)
+    if '|' not in text:  # 표가 아닌 경우에만 공백 정리
+        text = re.sub(r'\s+', ' ', text)
+    
+    # 줄바꿈 정리 (표가 아닌 경우에만)
+    if '|' not in text:
+        text = re.sub(r'\n\s*\n', '\n\n', text)
     
     return text.strip()
 
 def parse_table_from_text(text):
-    """텍스트에서 표 형식을 파싱하여 2D 배열로 변환"""
+    """텍스트에서 표 형식을 파싱하여 2D 배열로 변환 - 개선된 버전"""
     lines = text.strip().split('\n')
     table_data = []
+    table_title = None
     
+    # 표 제목 찾기 (표 위의 텍스트)
+    title_lines = []
+    table_started = False
+    
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if not line:
+            continue
+            
+        # 표 시작 확인
+        if is_table_row(line):
+            table_started = True
+            # 이전까지의 텍스트를 제목으로 처리
+            if title_lines:
+                table_title = ' '.join(title_lines).strip()
+                # 제목에서 불필요한 문자 제거
+                table_title = re.sub(r'^\*\*|\*\*$', '', table_title)  # 마크다운 볼드 제거
+                table_title = re.sub(r'^#+\s*', '', table_title)  # 마크다운 헤더 제거
+            break
+        else:
+            # 표가 시작되기 전까지의 텍스트를 제목으로 저장
+            # 단, 너무 긴 텍스트는 제목이 아닐 수 있음
+            if len(line) < 100:  # 100자 이하만 제목으로 간주
+                title_lines.append(line)
+    
+    # 표 데이터 파싱
     for line in lines:
         line = line.strip()
         if not line:
             continue
             
-        # 구분선 제거
-        if re.match(r'^[\s\-=_]+\s*$', line):
+        # 구분선 제거 (마크다운 표 구분선)
+        if re.match(r'^[\s\-=_:|]+\s*$', line):
             continue
             
-        # | 구분자로 분할
-        if '|' in line:
-            cells = [cell.strip() for cell in line.split('|')]
-            # 첫 번째와 마지막 빈 셀 제거 (마크다운 표 형식)
-            if cells and not cells[0].strip():
-                cells = cells[1:]
-            if cells and not cells[-1].strip():
-                cells = cells[:-1]
-            table_data.append(cells)
-        else:
-            # 탭이나 공백으로 구분된 경우
-            cells = [cell.strip() for cell in line.split('\t') if cell.strip()]
-            if not cells:
-                cells = [cell.strip() for cell in re.split(r'\s{2,}', line) if cell.strip()]
+        # 표 행인지 확인
+        if is_table_row(line):
+            cells = parse_table_row(line)
             if cells:
                 table_data.append(cells)
     
-    return table_data
+    # 표 데이터 정규화 (모든 행이 같은 열 수를 가지도록)
+    if table_data:
+        max_cols = max(len(row) for row in table_data)
+        normalized_data = []
+        for row in table_data:
+            # 부족한 열은 빈 문자열로 채움
+            normalized_row = row + [''] * (max_cols - len(row))
+            normalized_data.append(normalized_row)
+        return normalized_data, table_title
+    
+    return table_data, table_title
+
+def is_table_row(line):
+    """한 줄이 표 행인지 확인"""
+    # | 구분자가 있는 경우
+    if '|' in line:
+        return True
+    
+    # 탭으로 구분된 경우
+    if '\t' in line:
+        return True
+    
+    # 2개 이상의 공백으로 구분된 경우 (정렬된 텍스트)
+    if re.search(r'\s{2,}', line):
+        return True
+    
+    return False
+
+def parse_table_row(line):
+    """표 행을 파싱하여 셀 배열로 변환"""
+    # | 구분자로 분할 (마크다운 표 형식)
+    if '|' in line:
+        cells = [cell.strip() for cell in line.split('|')]
+        # 첫 번째와 마지막 빈 셀 제거 (마크다운 표 형식)
+        if cells and not cells[0].strip():
+            cells = cells[1:]
+        if cells and not cells[-1].strip():
+            cells = cells[:-1]
+        return cells
+    
+    # 탭으로 구분된 경우
+    elif '\t' in line:
+        cells = [cell.strip() for cell in line.split('\t') if cell.strip()]
+        return cells
+    
+    # 2개 이상의 공백으로 구분된 경우
+    elif re.search(r'\s{2,}', line):
+        cells = [cell.strip() for cell in re.split(r'\s{2,}', line) if cell.strip()]
+        return cells
+    
+    return []
 
 def is_table_format(text):
-    """텍스트가 표 형식인지 확인"""
+    """텍스트가 표 형식인지 확인 - 개선된 버전"""
     lines = text.strip().split('\n')
     if len(lines) < 2:
         return False
     
     # 표 구분자 확인
     table_indicators = ['|', '\t']
-    for line in lines[:3]:
+    table_line_count = 0
+    
+    for line in lines[:5]:  # 처음 5줄만 확인
         if any(indicator in line for indicator in table_indicators):
-            return True
+            table_line_count += 1
     
-    # 구분선 확인
+    # 2줄 이상에 표 구분자가 있으면 표로 인식
+    if table_line_count >= 2:
+        return True
+    
+    # 구분선 확인 (마크다운 표 구분선)
     for line in lines:
-        if re.match(r'^[\s\-=_]+\s*$', line.strip()):
+        if re.match(r'^[\s\-=_:|]+\s*$', line.strip()):
             return True
     
-    # 정렬된 텍스트 확인
-    if len(lines) >= 2:
-        first_line = lines[0]
-        second_line = lines[1]
-        first_words = re.split(r'\s{2,}', first_line.strip())
-        second_words = re.split(r'\s{2,}', second_line.strip())
+    # 정렬된 텍스트 확인 (2개 이상의 공백으로 구분)
+    aligned_line_count = 0
+    for line in lines[:3]:
+        if re.search(r'\s{2,}', line.strip()):
+            aligned_line_count += 1
+    
+    if aligned_line_count >= 2:
+        return True
+    
+    return False
+
+def create_table_with_improved_style(table_data, font_registered):
+    """개선된 스타일로 표 생성"""
+    if not table_data or len(table_data) == 0:
+        return None
+    
+    # 헤더 행 확인 (첫 번째 행이 헤더인지 판단)
+    has_header = is_header_row(table_data[0]) if table_data else False
+    
+    # 표 너비 계산 (A4 페이지 너비에 맞춤)
+    page_width = 8.27 * inch  # A4 너비
+    margin = 0.5 * inch
+    available_width = page_width - 2 * margin
+    
+    # 열 수에 따른 동적 너비 계산
+    num_cols = len(table_data[0])
+    col_width = available_width / num_cols
+    
+    # 표 생성
+    table = Table(table_data, colWidths=[col_width] * num_cols)
+    
+    # 개선된 표 스타일
+    if font_registered:
+        table_style = TableStyle([
+            # 격자 및 정렬
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            
+            # 패딩
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            
+            # 텍스트 줄바꿈
+            ('WORDWRAP', (0, 0), (-1, -1), True),
+        ])
         
-        if len(first_words) >= 2 and len(second_words) >= 2:
-            if abs(len(first_words) - len(second_words)) <= 1:
+        # 헤더가 있으면 헤더 스타일 적용
+        if has_header:
+            table_style.add('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E86AB'))
+            table_style.add('TEXTCOLOR', (0, 0), (-1, 0), colors.white)
+            table_style.add('FONTNAME', (0, 0), (-1, 0), 'KoreanFont')
+            table_style.add('FONTSIZE', (0, 0), (-1, 0), 11)
+            table_style.add('FONTWEIGHT', (0, 0), (-1, 0), 'bold')
+            
+            # 데이터 행 스타일
+            table_style.add('FONTNAME', (0, 1), (-1, -1), 'KoreanFont')
+            table_style.add('FONTSIZE', (0, 1), (-1, -1), 10)
+            table_style.add('TEXTCOLOR', (0, 1), (-1, -1), colors.black)
+            
+            # 짝수 행 배경색 (가독성 향상)
+            table_style.add('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8F9FA'))
+        else:
+            # 헤더가 없으면 모든 행에 동일한 스타일
+            table_style.add('FONTNAME', (0, 0), (-1, -1), 'KoreanFont')
+            table_style.add('FONTSIZE', (0, 0), (-1, -1), 10)
+            table_style.add('TEXTCOLOR', (0, 0), (-1, -1), colors.black)
+            table_style.add('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA'))
+    else:
+        # 기본 폰트 사용 (한국어가 깨질 수 있음)
+        table_style = TableStyle([
+            # 격자 및 정렬
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            
+            # 패딩
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            
+            # 텍스트 줄바꿈
+            ('WORDWRAP', (0, 0), (-1, -1), True),
+        ])
+        
+        # 헤더가 있으면 헤더 스타일 적용
+        if has_header:
+            table_style.add('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2E86AB'))
+            table_style.add('TEXTCOLOR', (0, 0), (-1, 0), colors.white)
+            table_style.add('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
+            table_style.add('FONTSIZE', (0, 0), (-1, 0), 11)
+            
+            # 데이터 행 스타일
+            table_style.add('FONTNAME', (0, 1), (-1, -1), 'Helvetica')
+            table_style.add('FONTSIZE', (0, 1), (-1, -1), 10)
+            table_style.add('TEXTCOLOR', (0, 1), (-1, -1), colors.black)
+            
+            # 짝수 행 배경색 (가독성 향상)
+            table_style.add('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8F9FA'))
+        else:
+            # 헤더가 없으면 모든 행에 동일한 스타일
+            table_style.add('FONTNAME', (0, 0), (-1, -1), 'Helvetica')
+            table_style.add('FONTSIZE', (0, 0), (-1, -1), 10)
+            table_style.add('TEXTCOLOR', (0, 0), (-1, -1), colors.black)
+            table_style.add('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA'))
+    
+    table.setStyle(table_style)
+    return table
+
+def is_header_row(row):
+    """행이 헤더인지 확인"""
+    if not row:
+        return False
+    
+    # 헤더로 보이는 키워드들
+    header_keywords = [
+        '항목', '구분', '분류', '종류', '유형', '타입', '카테고리',
+        '특성', '특징', '속성', '성질', '성격',
+        '근거', '이유', '원인', '배경', '기반',
+        '내용', '설명', '상세', '세부',
+        '비율', '퍼센트', '수치', '값', '데이터',
+        '날짜', '기간', '시기', '연도', '월', '일',
+        '이름', '명칭', '제목', '표제',
+        '번호', '순서', '순번', '인덱스'
+    ]
+    
+    # 행의 모든 셀을 확인
+    for cell in row:
+        cell_lower = cell.lower().strip()
+        for keyword in header_keywords:
+            if keyword in cell_lower:
                 return True
+    
+    # 셀 내용이 짧고 명확한 경우 (헤더일 가능성)
+    short_cells = sum(1 for cell in row if len(cell.strip()) <= 10)
+    if short_cells >= len(row) * 0.7:  # 70% 이상이 짧은 경우
+        return True
     
     return False
 
@@ -192,45 +412,19 @@ def generate_pdf_report(content, user_inputs):
             
         # 표 형식 처리
         if is_table_format(para):
-            table_data = parse_table_from_text(para)
+            table_data, table_title = parse_table_from_text(para)
             if table_data and len(table_data) > 0:
-                # 표 생성
-                table = Table(table_data)
+                # 표 제목이 있으면 먼저 추가
+                if table_title:
+                    story.append(Paragraph(clean_text_for_pdf(table_title), heading_style))
+                    story.append(Spacer(1, 6))
                 
-                # 표 스타일 설정 - 폰트 문제 해결
-                if font_registered:
-                    table_style = TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, -1), 'KoreanFont'),
-                        ('FONTSIZE', (0, 0), (-1, 0), 12),
-                        ('FONTSIZE', (0, 1), (-1, -1), 10),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.beige]),
-                    ])
-                else:
-                    # 기본 폰트 사용 (한국어가 깨질 수 있음)
-                    table_style = TableStyle([
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                        ('FONTSIZE', (0, 0), (-1, 0), 12),
-                        ('FONTSIZE', (0, 1), (-1, -1), 10),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.beige]),
-                    ])
+                # 표 생성 - 너비 제한으로 페이지 넘어김 방지
+                table = create_table_with_improved_style(table_data, font_registered)
                 
-                table.setStyle(table_style)
-                story.append(table)
-                story.append(Spacer(1, 12))
+                if table:
+                    story.append(table)
+                    story.append(Spacer(1, 12))
                 continue
         
         # 일반 텍스트 처리
@@ -315,17 +509,41 @@ def generate_word_report(content, user_inputs):
             
         # 표 형식 처리
         if is_table_format(para):
-            table_data = parse_table_from_text(para)
+            table_data, table_title = parse_table_from_text(para)
             if table_data and len(table_data) > 0:
-                # Word 표 생성
-                table = doc.add_table(rows=len(table_data), cols=len(table_data[0]))
-                table.style = 'Table Grid'
+                try:
+                    # 표 제목이 있으면 먼저 추가
+                    if table_title:
+                        doc.add_heading(clean_text_for_pdf(table_title), level=3)
+                    
+                    # Word 표 생성
+                    table = doc.add_table(rows=len(table_data), cols=len(table_data[0]))
+                    table.style = 'Table Grid'
+                    
+                    # 표 스타일 개선
+                    table.allow_autofit = True
+                    
+                    # 데이터 채우기
+                    for i, row in enumerate(table_data):
+                        for j, cell in enumerate(row):
+                            if i < len(table.rows) and j < len(table.rows[i].cells):
+                                cell_text = clean_text_for_pdf(cell)
+                                table.rows[i].cells[j].text = cell_text
+                                
+                                # 헤더 행 스타일링
+                                if i == 0:
+                                    cell_obj = table.rows[i].cells[j]
+                                    for paragraph in cell_obj.paragraphs:
+                                        for run in paragraph.runs:
+                                            run.bold = True
+                                            run.font.color.rgb = None  # 기본 색상
                 
-                # 데이터 채우기
-                for i, row in enumerate(table_data):
-                    for j, cell in enumerate(row):
-                        if i < len(table.rows) and j < len(table.rows[i].cells):
-                            table.rows[i].cells[j].text = clean_text_for_pdf(cell)
+                except Exception as e:
+                    print(f"표 생성 오류: {e}")
+                    # 표 생성 실패 시 일반 텍스트로 변환
+                    if table_title:
+                        doc.add_paragraph(f"[표 제목: {table_title}]")
+                    doc.add_paragraph(f"[표 데이터: {para[:100]}...]")
                 
                 doc.add_paragraph()  # 표 후 빈 줄
                 continue

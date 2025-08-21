@@ -1035,10 +1035,10 @@ def render_optimization_tab():
         st.warning("⚠️ 먼저 분석을 완료해주세요.")
         return
     
-    st.info("�� 기존 분석 결과를 바탕으로 매스별 최적화 조건을 자동으로 분석합니다.")
+    st.info(" 기존 분석 결과를 바탕으로 매스별 최적화 조건을 자동으로 분석합니다.")
     
     # 자동 분석 실행
-    if st.button("�� 매스별 최적화 조건 자동 분석", type="primary"):
+    if st.button("매스별 최적화 조건 자동 분석", type="primary"):
         with st.spinner("매스별 최적화 조건을 자동으로 분석하고 있습니다..."):
             try:
                 # 사용자 입력 가져오기
@@ -1285,11 +1285,11 @@ def render_report_tab():
         #             st.markdown(history.get('result', '')[:300] + "...")
         #             st.markdown("---")
     else:
-        st.info("�� 분석을 먼저 진행해주세요.")
+        st.info("분석을 먼저 진행해주세요.")
 
 def render_claude_narrative_tab():
     """Claude Narrative 탭 렌더링"""
-    st.header("�� 건축설계 발표용 Narrative 생성 시스템")
+    st.header("건축설계 발표용 Narrative 생성 시스템")
     
     # 분석 결과 확인
     if not st.session_state.get('cot_history'):

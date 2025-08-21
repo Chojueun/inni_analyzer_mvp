@@ -147,7 +147,7 @@ def fallback_to_simple_search(query: str, pdf_id: str, top_k: int) -> str:
         for i, (score, para) in enumerate(scored_paragraphs[:top_k], 1):
             if len(para) > 500:
                 para = para[:500] + "..."
-            results.append(f"�� 간단 검색 결과 {i} (관련도: {score}):\n{para}")
+            results.append(f"간단 검색 결과 {i} (관련도: {score}):\n{para}")
         
         if results:
             return "\n---\n".join(results)
