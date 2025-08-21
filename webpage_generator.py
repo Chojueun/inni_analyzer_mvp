@@ -700,7 +700,7 @@ def generate_dark_interactive_webpage(analysis_results: List[Dict], project_info
         
         <div class="footer">
             <p>생성일: {datetime.now().strftime("%Y년 %m월 %d일 %H:%M")}</p>
-            <p>ArchInsight - AI-driven Project Insight & Workflow</p>
+            <p>dAI+ ArchInsight - AI-driven Project Insight & Workflow</p>
         </div>
     </div>
     

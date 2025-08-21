@@ -1094,7 +1094,13 @@ def render_optimization_tab():
 
 def render_tabbed_interface():
     """탭 기반 인터페이스 렌더링"""
-    st.header("ArchInsight 분석 시스템")
+    # 메인 헤더 수정: dAI+ 메인 (검은색, 큰 글씨), ArchInsight 분석 시스템 작은 글씨 (정확한 아래정렬)
+    st.markdown("""
+    <div style="display: flex; align-items: flex-end; gap: 10px;">
+        <h1 style="margin: 0; padding: 0; font-size: 3.5rem; font-weight: bold; color: #000000; line-height: 1;">dAI+</h1>
+        <span style="font-size: 1rem; color: #666; font-weight: normal; margin: 0; padding: 0; line-height: 1; margin-bottom: 12px;">ArchInsight 분석 시스템</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     # 탭 생성 (최적화 조건 탭 추가)
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -1102,7 +1108,7 @@ def render_tabbed_interface():
         "분석 결과", 
         "최적화 조건",
         "건축설계 발표용 Narrative", 
-        "ArchiRender GPT",
+        "ArchiRender",
         "보고서 생성"
     ])
     
